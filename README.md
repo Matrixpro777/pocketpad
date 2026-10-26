@@ -44,7 +44,7 @@ vuelve a los valores por defecto.
 
 ## Mando virtual
 
-Cada conexión crea un `/dev/input/eventN` llamado `Phonepad Slot N`
+Cada conexión crea un `/dev/input/eventN` llamado `PS4ControllerN`
 (VID 054C, PID 09CC: DualShock 4 v2). Al desconectarse se destruye solo.
 
 Verificar a mano:
@@ -52,7 +52,7 @@ Verificar a mano:
 ```bash
 ls /dev/input/by-path/ | grep -i event   # o
 python3 -c "import evdev; print([(d.path, d.name) for d in map(evdev.InputDevice, evdev.list_devices())])"
-sudo evtest      # elige "Phonepad Slot N"
+sudo evtest      # elige "PS4Controller1"
 ```
 
 ## Botones

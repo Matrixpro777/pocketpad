@@ -185,4 +185,4 @@ app Android tal cual.
 - PWA/navegador como producto final: sirve solo para pruebas (ya está).
 - `evdev.UInput` no acepta `uniq=` (falla con TypeError); sí acepta `phys=`.
 - La prueba de humo debe localizar el mando por `dev.phys == "phonepad/<slot>"`,
-  no por nombre, porque el nombre es `Phonepad Slot <slot+1>`.
+  no por nombre, porque el nombre es `PS4Controller<slot+1>`.

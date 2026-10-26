@@ -72,7 +72,7 @@ class VirtualPad:
         }
         self.ui = UInput(
             events,
-            name=f"Phonepad Slot {slot + 1}",
+            name=f"PS4Controller{slot + 1}",
             vendor=0x054C,
             product=0x09CC,
             # versión distinta por slot: SDL deriva el GUID del dispositivo de
