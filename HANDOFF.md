@@ -2,6 +2,18 @@
 
 Estado al 2026-10-26. Sirve para retomar el proyecto con cualquier modelo o sesión.
 
+## Punto de partida (2026-10-26)
+
+- Repo git local en `~/Proyectos/phonepad`, commit **c0dad201** (sin remoto).
+  Volver aquí: `git -C ~/Proyectos/phonepad checkout c0dad201`.
+- Funciona: servidor UDP/TCP/WebSocket, DS4 virtual por uinput, cliente web,
+  APK Android con editor de layout. Verificado con `tools/selftest.py` (OK) y
+  con el teléfono real (slot 1 creado y liberado).
+- Servicio: `systemctl --user status phonepad` (arranca al iniciar sesión).
+- Sin probar aún: un juego real, giroscopio, rumble, Windows.
+- Comprobación rápida tras cualquier cambio: `python3 tools/selftest.py`.
+
+
 ## Objetivo
 
 Mando virtual tipo DualShock 4 en la PC, controlado desde el celular por WiFi.
