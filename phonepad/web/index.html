@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0b0d12">
+<title>Phonepad</title>
+<style>
+  :root {
+    --bg: #0b0d12;
+    --panel: rgba(255,255,255,.06);
+    --line: rgba(255,255,255,.16);
+    --txt: #e7ecf5;
+    --accent: #2ee6a8;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    background: var(--bg); color: var(--txt);
+    font: 500 13px/1.2 system-ui, -apple-system, sans-serif;
+    user-select: none; touch-action: none;
+  }
+  #stage { position: fixed; inset: 0; }
+
+  .btn, .stick, .dpad-btn {
+    position: absolute;
+    display: grid; place-items: center;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    color: var(--txt);
+    font-weight: 700;
+    backdrop-filter: blur(6px);
+    transition: transform .06s, background .08s, box-shadow .08s;
+  }
+  .btn.on, .dpad-btn.on {
+    background: rgba(46,230,168,.35);
+    box-shadow: 0 0 18px rgba(46,230,168,.45) inset;
+    transform: scale(.94);
+  }
+
+  /* --- hombros: L2/L1 esquina sup. izq., R2/R1 esquina sup. der. --- */
+  .shoulder {
+    width: 19vw; height: 11vh; min-height: 46px;
+    border-radius: 16px; font-size: 15px; letter-spacing: .5px;
+  }
+  #l2 { left: 2vw;  top: 1.5vh; border-top-left-radius: 26px; }
+  #l1 { left: 2vw;  top: calc(1.5vh + 13vh); border-top-left-radius: 26px; }
+  #r2 { right: 2vw; top: 1.5vh; border-top-right-radius: 26px; }
+  #r1 { right: 2vw; top: calc(1.5vh + 13vh); border-top-right-radius: 26px; }
+
+  /* --- sticks --- */
+  .stick {
+    width: 34vmin; height: 34vmin; min-width: 150px; min-height: 150px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 50% 50%, rgba(255,255,255,.05), rgba(255,255,255,.09) 60%, rgba(255,255,255,.03));
+    box-shadow: inset 0 0 40px rgba(0,0,0,.55);
+  }
+  #stickL { left: 3vw; bottom: 3vh; }
+  #stickR { right: 3vw; bottom: 3vh; }
+  .nub {
+    width: 44%; height: 44%; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #4a5364, #1a1f28);
+    border: 1px solid rgba(255,255,255,.22);
+    box-shadow: 0 6px 18px rgba(0,0,0,.6);
+    position: absolute; left: 28%; top: 28%;
+    will-change: transform;
+  }
+  .stick .tag {
+    position: absolute; bottom: 6%; width: 100%; text-align: center;
+    font-size: 10px; opacity: .45; letter-spacing: 1px;
+  }
+  .stick.clicked .nub { background: radial-gradient(circle at 35% 30%, #2ee6a8, #0d6b4d); }
+
+  /* --- flechas --- */
+  #dpad {
+    position: absolute; left: 40vw; bottom: 4vh;
+    width: 30vmin; height: 30vmin; min-width: 132px; min-height: 132px;
+    display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
+    gap: 4px;
+  }
+  .dpad-btn { position: relative; border-radius: 12px; font-size: 18px; }
+  #up    { grid-area: 1 / 2; }
+  #left  { grid-area: 2 / 1; }
+  #right { grid-area: 2 / 3; }
+  #down  { grid-area: 3 / 2; }
+
+  /* --- botones de acción --- */
+  #face {
+    position: absolute; right: 40vw; bottom: 4vh;
+    width: 32vmin; height: 32vmin; min-width: 140px; min-height: 140px;
+    display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
+    gap: 6px;
+  }
+  #face .btn {
+    position: relative; border-radius: 50%; font-size: 20px;
+  }
+  #triangle { grid-area: 1 / 2; color: #7ef0b0; }
+  #square   { grid-area: 2 / 1; color: #ff8fc4; }
+  #circle   { grid-area: 2 / 3; color: #ff7a7a; }
+  #cross    { grid-area: 3 / 2; color: #7ab8ff; }
+
+  /* --- centro: select / ps / start --- */
+  #center {
+    position: absolute; left: 50%; bottom: 4vh; transform: translateX(-50%);
+    display: flex; gap: 14px; align-items: flex-end;
+  }
+  #center .btn {
+    position: relative; width: 15vmin; min-width: 62px; height: 7vh; min-height: 40px;
+    border-radius: 999px; font-size: 11px; letter-spacing: .5px;
+  }
+  #ps { border-radius: 50%; width: 56px; min-width: 56px; height: 56px; min-height: 56px; }
+  #ps.on { background: rgba(122,184,255,.35); }
+
+  /* --- HUD --- */
+  #hud {
+    position: absolute; top: 1.5vh; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 10px; align-items: center;
+    padding: 6px 14px; border-radius: 999px;
+    background: rgba(0,0,0,.45); border: 1px solid var(--line);
+    font-size: 11px; letter-spacing: .4px; white-space: nowrap;
+  }
+  #dot { width: 8px; height: 8px; border-radius: 50%; background: #ff5b5b; }
+  #dot.ok { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+  #hud button {
+    background: none; border: 1px solid var(--line); color: var(--txt);
+    border-radius: 999px; padding: 3px 9px; font-size: 11px;
+  }
+  .hint {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    text-align: center; font-size: 12px; opacity: .5; pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+
+  <div id="hud">
+    <span id="dot"></span>
+    <span id="status">conectando…</span>
+    <button id="fs">⛶</button>
+  </div>
+
+  <div class="btn shoulder" id="l2" data-btn="l2">L2</div>
+  <div class="btn shoulder" id="l1" data-btn="l1">L1</div>
+  <div class="btn shoulder" id="r2" data-btn="r2">R2</div>
+  <div class="btn shoulder" id="r1" data-btn="r1">R1</div>
+
+  <div class="stick" id="stickL" data-stick="l">
+    <div class="nub"></div><div class="tag">L3</div>
+  </div>
+  <div class="stick" id="stickR" data-stick="r">
+    <div class="nub"></div><div class="tag">R3</div>
+  </div>
+
+  <div id="dpad">
+    <div class="dpad-btn" id="up" data-btn="up">▲</div>
+    <div class="dpad-btn" id="left" data-btn="left">◀</div>
+    <div class="dpad-btn" id="right" data-btn="right">▶</div>
+    <div class="dpad-btn" id="down" data-btn="down">▼</div>
+  </div>
+
+  <div id="face">
+    <div class="btn" id="triangle" data-btn="triangle">△</div>
+    <div class="btn" id="square" data-btn="square">□</div>
+    <div class="btn" id="circle" data-btn="circle">○</div>
+    <div class="btn" id="cross" data-btn="cross">✕</div>
+  </div>
+
+  <div id="center">
+    <div class="btn" id="share" data-btn="share">SHARE</div>
+    <div class="btn" id="ps" data-btn="ps">PS</div>
+    <div class="btn" id="options" data-btn="options">START</div>
+  </div>
+
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const BUTTONS = ["cross","circle","square","triangle","l1","r1","l2","r2",
+                   "l3","r3","share","options","ps","up","down","left","right"];
+  const BIT = Object.fromEntries(BUTTONS.map((n, i) => [n, 1 << i]));
+  const AXES = ["lx","ly","rx","ry","l2","r2"];
+
+  const mask = new Set();          // botones pulsados
+  const sticks = { l: [0, 0], r: [0, 0] };  // -1..1
+  const triggers = { l2: 0, r2: 1 };        // 0/1
+  const ownership = new Map();     // pointerId -> {kind:'btn'|'stick', id}
+
+  const statusEl = document.getElementById("status");
+  const dot = document.getElementById("dot");
+
+  // ---------------- estado a enviar ----------------
+  const ax = new Array(6).fill(0);
+  function snapshot() {
+    ax[0] = sticks.l[0]; ax[1] = sticks.l[1];
+    ax[2] = sticks.r[0]; ax[3] = sticks.r[1];
+    ax[4] = triggers.l2; ax[5] = triggers.r2;
+    let m = 0;
+    for (const name of mask) m |= BIT[name];
+    return { a: ax, b: m };
+  }
+
+  // ---------------- red ----------------
+  const params = new URLSearchParams(location.search);
+  const wsPort = params.get("ws") || 8099;
+  let socket = null, ready = false, slot = null, retry = 0;
+
+  function connect() {
+    const url = `ws://${location.hostname}:${wsPort}/ws`;
+    socket = new WebSocket(url);
+    socket.onopen = () => {
+      retry = 0;
+      socket.send(JSON.stringify({ t: "hello", name: deviceName() }));
+      ready = true;
+    };
+    socket.onmessage = (event) => {
+      let msg; try { msg = JSON.parse(event.data); } catch { return; }
+      if (msg.t === "welcome") {
+        slot = msg.slot;
+        dot.classList.add("ok");
+        statusEl.textContent = `mando ${slot + 1} de ${msg.max}`;
+      } else if (msg.t === "full") {
+        dot.classList.remove("ok");
+        statusEl.textContent = "sin mandos libres";
+      }
+    };
+    socket.onclose = () => {
+      ready = false; dot.classList.remove("ok");
+      statusEl.textContent = "reconectando…";
+      retry = Math.min(retry + 1, 6);
+      setTimeout(connect, 300 * retry);
+    };
+    socket.onerror = () => socket.close();
+  }
+
+  function deviceName() {
+    const ua = navigator.userAgent;
+    if (/iPhone|iPad/.test(ua)) return "iPhone";
+    if (/Android/.test(ua)) return "Android";
+    return "navegador";
+  }
+
+  let last = "";
+  function pump() {
+    const s = snapshot();
+    const payload = JSON.stringify({ t: "state", a: s.a.map(v => Math.round(v * 1000) / 1000), b: s.b });
+    if (ready && socket && socket.readyState === 1 && payload !== last) {
+      socket.send(payload);
+      last = payload;
+    }
+    requestAnimationFrame(pump);
+  }
+
+  // ---------------- botones ----------------
+  function setButton(name, on) {
+    if (on) mask.add(name); else mask.delete(name);
+    const el = document.querySelector(`[data-btn="${name}"]`);
+    if (el) el.classList.toggle("on", on);
+    if (name === "l2" || name === "r2") triggers[name] = on ? 1 : 0;
+  }
+
+  function btnAt(x, y) {
+    const el = document.elementFromPoint(x, y);
+    return el && el.closest ? el.closest("[data-btn]") : null;
+  }
+
+  addEventListener("pointerdown", (ev) => {
+    const btn = btnAt(ev.clientX, ev.clientY);
+    if (btn && !ownership.has(ev.pointerId)) {
+      const name = btn.dataset.btn;
+      ownership.set(ev.pointerId, { kind: "btn", id: name });
+      setButton(name, true);
+      navigator.vibrate?.(8);
+      ev.preventDefault();
+      return;
+    }
+    const stick = stickAt(ev.clientX, ev.clientY);
+    if (stick && !ownership.has(ev.pointerId)) {
+      const which = stick.dataset.stick;
+      const click = isCenter(stick, ev.clientX, ev.clientY);
+      ownership.set(ev.pointerId, { kind: "stick", id: which, click });
+      stick.classList.toggle("clicked", click);
+      if (click) setButton(which === "l" ? "l3" : "r3", true);
+      else moveStick(which, stick, ev.clientX, ev.clientY);
+      ev.preventDefault();
+    }
+  }, { passive: false });
+
+  addEventListener("pointermove", (ev) => {
+    const own = ownership.get(ev.pointerId);
+    if (!own) return;
+    if (own.kind === "stick") {
+      if (own.click) return;
+      moveStick(own.id, document.getElementById(own.id === "l" ? "stickL" : "stickR"), ev.clientX, ev.clientY);
+      return;
+    }
+    const over = btnAt(ev.clientX, ev.clientY);
+    const name = over ? over.dataset.btn : null;
+    if (name !== own.id) {
+      setButton(own.id, false);
+      own.id = name;
+      if (name) setButton(name, true);
+    }
+  }, { passive: false });
+
+  function release(ev) {
+    const own = ownership.get(ev.pointerId);
+    if (!own) return;
+    ownership.delete(ev.pointerId);
+    if (own.kind === "btn") {
+      if (own.id) setButton(own.id, false);
+    } else {
+      const stick = document.getElementById(own.id === "l" ? "stickL" : "stickR");
+      stick.classList.remove("clicked");
+      if (own.click) setButton(own.id === "l" ? "l3" : "r3", false);
+      else { sticks[own.id] = [0, 0]; drawNub(own.id, 0, 0); }
+    }
+  }
+  addEventListener("pointerup", release);
+  addEventListener("pointercancel", release);
+
+  // ---------------- sticks ----------------
+  function stickAt(x, y) {
+    const el = document.elementFromPoint(x, y);
+    return el && el.closest ? el.closest("[data-stick]") : null;
+  }
+  function isCenter(el, x, y) {
+    const r = el.getBoundingClientRect();
+    const dx = x - (r.left + r.width / 2), dy = y - (r.top + r.height / 2);
+    return Math.hypot(dx, dy) < r.width * 0.18;
+  }
+  function moveStick(which, el, x, y) {
+    const r = el.getBoundingClientRect();
+    const radius = r.width / 2;
+    let dx = (x - (r.left + radius)) / radius;
+    let dy = (y - (r.top + radius)) / radius;
+    const len = Math.hypot(dx, dy);
+    if (len > 1) { dx /= len; dy /= len; }
+    const dead = 0.12;
+    const norm = Math.hypot(dx, dy);
+    if (norm < dead) { dx = 0; dy = 0; }
+    sticks[which] = [dx, dy];
+    drawNub(which, dx, dy);
+  }
+  function drawNub(which, dx, dy) {
+    const el = document.getElementById(which === "l" ? "stickL" : "stickR");
+    const nub = el.querySelector(".nub");
+    const travel = el.getBoundingClientRect().width * 0.28;
+    nub.style.transform = `translate(${dx * travel}px, ${dy * travel}px)`;
+  }
+
+  // ---------------- HUD ----------------
+  document.getElementById("fs").addEventListener("click", async () => {
+    if (!document.fullscreenElement) await document.documentElement.requestFullscreen?.();
+    else await document.exitFullscreen?.();
+  });
+  addEventListener("contextmenu", (e) => e.preventDefault());
+
+  connect();
+  requestAnimationFrame(pump);
+  setInterval(() => {
+    if (ready && socket?.readyState === 1) {
+      const s = snapshot();
+      socket.send(JSON.stringify({ t: "state", a: s.a, b: s.b }));
+    }
+  }, 400);
+})();
+</script>
+</body>
+</html>
