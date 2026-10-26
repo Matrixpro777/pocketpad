@@ -74,9 +74,9 @@ class VirtualPad:
             events,
             name=f"PS4Controller{slot + 1}",
             vendor=0x054C,
-            product=0x09CC,
-            # versión distinta por slot: SDL deriva el GUID del dispositivo de
-            # vendor/product/version, y sin esto los 8 mandos son indistinguibles.
+            # producto distinto por slot: SDL asocia 054c:09cc a "PS4 Controller"
+            # sin número; al cambiar el PID usa el nombre del dispositivo.
+            product=0x09CC + slot,
             version=0x8111 + slot,
             bustype=e.BUS_USB,
             phys=f"phonepad/{slot}",
