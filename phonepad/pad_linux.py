@@ -75,7 +75,9 @@ class VirtualPad:
             name=f"Phonepad Slot {slot + 1}",
             vendor=0x054C,
             product=0x09CC,
-            version=0x8111,
+            # versión distinta por slot: SDL deriva el GUID del dispositivo de
+            # vendor/product/version, y sin esto los 8 mandos son indistinguibles.
+            version=0x8111 + slot,
             bustype=e.BUS_USB,
             phys=f"phonepad/{slot}",
         )
