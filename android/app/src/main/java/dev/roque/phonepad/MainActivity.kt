@@ -32,11 +32,13 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -207,6 +209,8 @@ private fun SetupScreen(
     onDiscover: () -> Unit,
     onConnect: () -> Unit,
 ) {
+    var showCredits by remember { mutableStateOf(false) }
+
     Box(
         Modifier
             .fillMaxSize()
@@ -227,7 +231,13 @@ private fun SetupScreen(
                 letterSpacing = 5.sp,
             )
             Spacer(Modifier.height(6.dp))
-            Text("mando DualShock virtual por WiFi o USB", color = Ink.copy(alpha = 0.6f), fontSize = 12.sp)
+            Text(
+                "mando DualShock virtual por WiFi o USB",
+                color = Ink.copy(alpha = 0.6f),
+                fontSize = 12.sp,
+            )
+            Spacer(Modifier.height(3.dp))
+            Text("por Roque", color = Accent.copy(alpha = 0.55f), fontSize = 10.sp, letterSpacing = 1.sp)
             Spacer(Modifier.height(22.dp))
 
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -286,7 +296,65 @@ private fun SetupScreen(
                 fontSize = 12.sp,
                 textAlign = TextAlign.Center,
             )
+
+            Spacer(Modifier.height(26.dp))
+            Text(
+                "v0.2 · hecho por Roque",
+                color = Ink.copy(alpha = 0.35f),
+                fontSize = 10.sp,
+            )
+            Text(
+                "créditos",
+                color = Accent.copy(alpha = 0.7f),
+                fontSize = 10.sp,
+                modifier = Modifier
+                    .clickable { showCredits = true }
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+            )
         }
+
+        if (showCredits) {
+            CreditsDialog(onClose = { showCredits = false })
+        }
+    }
+}
+
+@Composable
+private fun CreditsDialog(onClose: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onClose,
+        confirmButton = {
+            TextButton(onClick = onClose) { Text("cerrar") }
+        },
+        title = { Text("Phonepad 0.2", fontWeight = FontWeight.Bold) },
+        text = {
+            Column {
+                Text("Mandos DualShock 4 virtuales para jugar desde el teléfono.", fontSize = 12.sp)
+                Spacer(Modifier.height(12.dp))
+                Credit("Idea, diseño y pruebas", "Roque")
+                Credit("Servidor", "Python + uinput (evdev)")
+                Credit("App Android", "Kotlin + Jetpack Compose")
+                Credit("Cliente web", "HTML + WebSocket")
+                Credit("Transporte", "UDP, TCP y WebSocket")
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    "Marca DualShock y PlayStation son de Sony; este proyecto no está afiliado.",
+                    color = Ink.copy(alpha = 0.45f),
+                    fontSize = 9.sp,
+                )
+            }
+        },
+        containerColor = Color(0xFF141821),
+        titleContentColor = Ink,
+        textContentColor = Ink.copy(alpha = 0.8f),
+    )
+}
+
+@Composable
+private fun Credit(role: String, name: String) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+        Text(role, color = Ink.copy(alpha = 0.5f), fontSize = 10.sp, modifier = Modifier.weight(1f))
+        Text(name, color = Ink, fontSize = 10.sp)
     }
 }
 

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- aro del mando -->
+    <path
+        android:pathData="M54,26 a28,28 0 1,0 0.01,0"
+        android:strokeColor="#2EE6A8"
+        android:strokeAlpha="0.35"
+        android:strokeWidth="3"
+        android:fillColor="#00000000" />
+
+    <!-- △ -->
+    <path
+        android:fillColor="#7EF0B0"
+        android:pathData="M54,30 a9,9 0 1,0 0.01,0" />
+    <!-- □ -->
+    <path
+        android:fillColor="#FF8FC4"
+        android:pathData="M36,48 a9,9 0 1,0 0.01,0" />
+    <!-- ○ -->
+    <path
+        android:fillColor="#FF7A7A"
+        android:pathData="M72,48 a9,9 0 1,0 0.01,0" />
+    <!-- ✕ -->
+    <path
+        android:fillColor="#7AB8FF"
+        android:pathData="M54,66 a9,9 0 1,0 0.01,0" />
+</vector>

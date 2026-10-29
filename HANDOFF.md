@@ -186,3 +186,13 @@ app Android tal cual.
 - `evdev.UInput` no acepta `uniq=` (falla con TypeError); sí acepta `phys=`.
 - La prueba de humo debe localizar el mando por `dev.phys == "phonepad/<slot>"`,
   no por nombre, porque el nombre es `PS4Controller<slot+1>`.
+
+### Marca y créditos (v0.2)
+
+Icono adaptativo (`res/mipmap-anydpi-v26/ic_launcher.xml`, cuatro botones de
+PlayStation sobre `#0B0D12`), autor «por Roque» en la pantalla de conexión y
+diálogo de créditos (`CreditsDialog` en `MainActivity.kt`). `versionName 0.2`.
+
+Mejoras propuestas, sin empezar: perfiles de layout por juego (varias claves
+`layout_*` en vez de una), reconexión automática al último PC, rumble real
+(leer force feedback del uinput y enviarlo por UDP) y giroscopio.
