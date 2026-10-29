@@ -13,6 +13,54 @@ Funciona en Linux (uinput). Windows quedará para una segunda fase (ViGEmBus).
    (o el servicio: `systemctl --user enable --now pocketpad`).
 4. Abra la app, pulse **Buscar en la red** o escriba la IP de la PC y **Conectar**.
 
+## Instalación paso a paso
+
+### En la PC (Linux)
+
+```bash
+git clone https://github.com/Matrixpro777/pocketpad
+cd pocketpad
+python3 -m venv .venv && . .venv/bin/activate   # opcional
+pip install evdev
+./run.sh
+```
+
+Para que arranque solo con la sesión:
+
+```bash
+cp pocketpad.service.example ~/.config/systemd/user/pocketpad.service
+systemctl --user enable --now pocketpad.service
+```
+
+Deje abiertos los puertos **9001/udp+tcp**, **8099/tcp** y **8080/tcp** (firewall
+del sistema; en Arch con `ufw`/`firewalld` suele estar cerrado por defecto).
+
+### En el teléfono
+
+1. Descargue el APK de la [última versión](https://github.com/Matrixpro777/pocketpad/releases/latest).
+2. Ábralo y permita «instalar apps de esta fuente» cuando el sistema lo pida.
+3. Abra **PocketPad** y pulse **Buscar en la red** (o escriba la IP que muestra
+   la PC al arrancar) y luego **Conectar**.
+4. El HUD confirma `mando N`; cada teléfono recibe uno distinto, hasta 8.
+
+### Por USB (sin WiFi)
+
+Con el teléfono conectado y depuración USB activa:
+
+```bash
+adb reverse tcp:9001 tcp:9001
+adb reverse tcp:8080 tcp:8080
+```
+
+En la app active **Por USB** y conéctese a `127.0.0.1:9001`.
+
+### Si algo no funciona
+
+- **No encuentra la PC**: misma red, firewall abierto, y pruebe la IP a mano.
+- **El mando no aparece en el juego**: reinicie el juego con la app ya conectada.
+- **`/dev/uinput` sin permisos**: `sudo usermod -aG input $USER` y reinicie sesión.
+- **Se cae la conexión**: la app reconecta sola; compruebe `systemctl --user status pocketpad`.
+
 ## Requisitos
 
 - Python 3.10+ y `python-evdev`
@@ -103,11 +151,15 @@ python3 tools/selftest.py
 
 Levanta el servidor real y valida UDP, WebSocket y la emisión al kernel.
 
-## Siguiente fase
+## Próximamente
 
-1. App Android nativa (Kotlin + Compose) con el mismo protocolo UDP.
-2. Backend Windows con `vgamepad` (máximo 4 mandos).
-3. Giroscopio, vibración y perfiles de layout.
+- **Windows**: backend con ViGEmBus, mismo protocolo y misma app.
+- **macOS**: en investigación (no hay equivalente libre a uinput/ViGEm).
+- **iOS**: depende de poder enviar UDP en segundo plano; sin fecha.
+- Touchpad del DS4, curva de sticks y PIN de seguridad para la red local.
+
+Solo Linux está soportado hoy: en Windows y macOS el servidor **no** funciona
+todavía, aunque la app Android ya está lista para ellos.
 
 ## Publicar una versión
 

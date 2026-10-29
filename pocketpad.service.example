@@ -1,0 +1,16 @@
+# Servicio de usuario: copiar a ~/.config/systemd/user/pocketpad.service
+#   systemctl --user daemon-reload && systemctl --user enable --now pocketpad
+[Unit]
+Description=PocketPad (mandos DualShock virtuales por red)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Proyectos/pocketpad
+ExecStart=%h/Proyectos/pocketpad/run.sh
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target
