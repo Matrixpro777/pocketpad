@@ -5,9 +5,11 @@ Funciona en Linux (uinput). Windows quedará para una segunda fase (ViGEmBus).
 
 ## Descargar e instalar (para cualquiera)
 
-1. Descargue el APK de la última *release* del repositorio.
+[![release](https://img.shields.io/github/v/release/Matrixpro777/pocketpad)](https://github.com/Matrixpro777/pocketpad/releases/latest)
+
+1. Descargue el APK de la [última versión](https://github.com/Matrixpro777/pocketpad/releases/latest).
 2. Instálelo en el teléfono (permita «instalar desde esta fuente»).
-3. En la PC: `git clone <repo> && cd pocketpad && ./run.sh`
+3. En la PC: `git clone https://github.com/Matrixpro777/pocketpad && cd pocketpad && ./run.sh`
    (o el servicio: `systemctl --user enable --now pocketpad`).
 4. Abra la app, pulse **Buscar en la red** o escriba la IP de la PC y **Conectar**.
 
