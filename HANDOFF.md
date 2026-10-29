@@ -196,3 +196,18 @@ diálogo de créditos (`CreditsDialog` en `MainActivity.kt`). `versionName 0.2`.
 Mejoras propuestas, sin empezar: perfiles de layout por juego (varias claves
 `layout_*` en vez de una), reconexión automática al último PC, rumble real
 (leer force feedback del uinput y enviarlo por UDP) y giroscopio.
+
+### Stick L3/R3 y perfiles (v0.3)
+
+`StickPad` ya no decide «clic» al apoyar el dedo: mueve el stick desde el primer
+píxel y solo pulsa L3/R3 si el dedo se levanta sin desplazarse más de 12 dp y
+antes de 400 ms. Así se acabó el R3 fantasma al conducir. `PadInput.stickRightHeld`
+avisa al giroscopio de que hay dedo en el stick derecho.
+
+`PadLayout` guarda perfiles por juego (`layout_v2`, JSON `profiles` + `current`,
+migración desde `layout_v1`). El HUD muestra el perfil y abre el diálogo para
+crear, cambiar o borrar. El HUD también enciende el giroscopio («giro»).
+
+Pendiente: reconexión automática y rumble. El rumble por uinput queda aparcado:
+`upload_effect` se bloquea porque el bucle de lectura de FF de python-evdev no
+responde en evdev 2.0; sin FF declarado el mando sigue funcionando.

@@ -3,6 +3,7 @@ package dev.roque.phonepad
 import android.content.Context
 import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
 import android.view.HapticFeedbackConstants
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
@@ -41,6 +42,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -68,6 +70,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.hypot
 import kotlin.math.roundToInt
@@ -362,8 +365,11 @@ private fun Credit(role: String, name: String) {
 private fun ControllerScreen(link: PadLink, input: PadInput, onExit: () -> Unit) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("phonepad", Context.MODE_PRIVATE) }
-    val layout = remember { PadLayout.load(prefs) }
+    val layout = remember { PadLayout(prefs) }
     var editing by remember { mutableStateOf(false) }
+    val gyro = remember { Gyro(context, input) }
+    var showProfiles by remember { mutableStateOf(false) }
+    DisposableEffect(Unit) { onDispose { gyro.stop() } }
 
     BoxWithConstraints(
         Modifier
@@ -418,12 +424,10 @@ private fun ControllerScreen(link: PadLink, input: PadInput, onExit: () -> Unit)
         if (editing) {
             EditBar(
                 modifier = Modifier.align(Alignment.TopCenter),
-                onReset = {
-                    layout.reset()
-                    layout.save(prefs)
-                },
+                profile = layout.profile,
+                onReset = { layout.reset() },
                 onDone = {
-                    layout.save(prefs)
+                    layout.save()
                     editing = false
                 },
             )
@@ -431,8 +435,18 @@ private fun ControllerScreen(link: PadLink, input: PadInput, onExit: () -> Unit)
             Hud(
                 modifier = Modifier.align(Alignment.TopCenter),
                 link = link,
+                profile = layout.profile,
+                gyro = gyro,
+                onProfiles = { layout.save(); showProfiles = true },
                 onEdit = { editing = true },
                 onExit = onExit,
+            )
+        }
+
+        if (showProfiles) {
+            ProfilesDialog(
+                layout = layout,
+                onClose = { showProfiles = false },
             )
         }
     }
@@ -480,7 +494,15 @@ private fun PadSlot(
 }
 
 @Composable
-private fun Hud(modifier: Modifier, link: PadLink, onEdit: () -> Unit, onExit: () -> Unit) {
+private fun Hud(
+    modifier: Modifier,
+    link: PadLink,
+    profile: String,
+    gyro: Gyro,
+    onProfiles: () -> Unit,
+    onEdit: () -> Unit,
+    onExit: () -> Unit,
+) {
     Row(
         modifier
             .padding(top = 8.dp)
@@ -498,7 +520,27 @@ private fun Hud(modifier: Modifier, link: PadLink, onEdit: () -> Unit, onExit: (
         )
         Spacer(Modifier.width(8.dp))
         Text("mando ${link.slot + 1} · ${link.host.orEmpty()}", color = Ink, fontSize = 11.sp)
-        Spacer(Modifier.width(14.dp))
+        Spacer(Modifier.width(12.dp))
+        Text(
+            profile,
+            color = Accent.copy(alpha = 0.85f),
+            fontSize = 11.sp,
+            modifier = Modifier
+                .clickable { onProfiles() }
+                .padding(horizontal = 6.dp, vertical = 2.dp),
+        )
+        if (gyro.available) {
+            Text(
+                "giro",
+                color = if (gyro.enabled) Accent else Ink.copy(alpha = 0.7f),
+                fontSize = 11.sp,
+                fontWeight = if (gyro.enabled) FontWeight.Bold else FontWeight.Normal,
+                modifier = Modifier
+                    .clickable { gyro.toggle() }
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
+            )
+        }
+        Spacer(Modifier.width(8.dp))
         Text(
             "editar",
             color = Ink.copy(alpha = 0.7f),
@@ -519,7 +561,12 @@ private fun Hud(modifier: Modifier, link: PadLink, onEdit: () -> Unit, onExit: (
 }
 
 @Composable
-private fun EditBar(modifier: Modifier, onReset: () -> Unit, onDone: () -> Unit) {
+private fun EditBar(
+    modifier: Modifier,
+    profile: String,
+    onReset: () -> Unit,
+    onDone: () -> Unit,
+) {
     Row(
         modifier
             .padding(top = 8.dp)
@@ -529,6 +576,8 @@ private fun EditBar(modifier: Modifier, onReset: () -> Unit, onDone: () -> Unit)
             .padding(horizontal = 14.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        Text(profile, color = Accent.copy(alpha = 0.85f), fontSize = 11.sp)
+        Spacer(Modifier.width(10.dp))
         Text("arrastra · pellizca", color = Ink.copy(alpha = 0.75f), fontSize = 11.sp)
         Spacer(Modifier.width(12.dp))
         Text(
@@ -549,6 +598,71 @@ private fun EditBar(modifier: Modifier, onReset: () -> Unit, onDone: () -> Unit)
                 .padding(horizontal = 6.dp, vertical = 2.dp),
         )
     }
+}
+
+@Composable
+private fun ProfilesDialog(layout: PadLayout, onClose: () -> Unit) {
+    var draft by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onClose,
+        confirmButton = { TextButton(onClick = onClose) { Text("cerrar") } },
+        title = { Text("Perfiles de mando", fontWeight = FontWeight.Bold) },
+        text = {
+            Column {
+                layout.profileNames.forEach { name ->
+                    Row(
+                        Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            if (name == layout.profile) "● $name" else name,
+                            color = if (name == layout.profile) Accent else Ink,
+                            fontSize = 12.sp,
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { layout.switchTo(name) }
+                                .padding(vertical = 6.dp),
+                        )
+                        if (name != PadLayout.DEFAULT) {
+                            Text(
+                                "borrar",
+                                color = Ink.copy(alpha = 0.45f),
+                                fontSize = 10.sp,
+                                modifier = Modifier
+                                    .clickable { layout.delete(name) }
+                                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = draft,
+                        onValueChange = {
+                            draft = it
+                            error = ""
+                        },
+                        label = { Text("nuevo perfil") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    TextButton(onClick = {
+                        if (!layout.create(draft)) error = "nombre vacío o repetido"
+                        else draft = ""
+                    }) { Text("crear") }
+                }
+                if (error.isNotEmpty()) {
+                    Text(error, color = Danger, fontSize = 10.sp)
+                }
+            }
+        },
+        containerColor = Color(0xFF141821),
+        titleContentColor = Ink,
+        textContentColor = Ink.copy(alpha = 0.8f),
+    )
 }
 
 @Composable
@@ -602,6 +716,7 @@ private fun StickPad(
     var nub by remember { mutableStateOf(Offset.Zero) }
     var clicking by remember { mutableStateOf(false) }
     val view = LocalView.current
+    val scope = rememberCoroutineScope()
 
     BoxWithConstraints(
         modifier
@@ -622,32 +737,39 @@ private fun StickPad(
             Modifier.pointerInput(clickName) {
                 val radius = size.width / 2f
                 val center = Offset(radius, radius)
+                val slop = 12.dp.toPx()
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
-                    val isClick = (down.position - center).getDistance() < radius * 0.18f
-                    if (isClick) {
-                        clicking = true
-                        view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-                        input.press(clickName)
-                    } else {
-                        nub = moveStick(stick, down.position, center, radius)
-                    }
+                    val startedAt = SystemClock.uptimeMillis()
+                    if (clickName == "r3") input.stickRightHeld = true
+                    var moved = false
+                    var finger = down.position
+                    nub = moveStick(stick, finger, center, radius)
                     while (true) {
                         val event = awaitPointerEvent()
                         val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                        if (!change.pressed) {
-                            change.consume()
-                            break
+                        finger = change.position
+                        if (!moved && (finger - down.position).getDistance() > slop) {
+                            moved = true
                         }
-                        if (!isClick) nub = moveStick(stick, change.position, center, radius)
+                        if (moved) nub = moveStick(stick, finger, center, radius)
                         change.consume()
+                        if (!change.pressed) break
                     }
-                    if (isClick) {
-                        clicking = false
-                        input.release(clickName)
-                    } else {
-                        stick.reset()
-                        nub = Offset.Zero
+                    val tapped = !moved && SystemClock.uptimeMillis() - startedAt < 400
+                    if (clickName == "r3") input.stickRightHeld = false
+                    stick.reset()
+                    nub = Offset.Zero
+                    if (tapped) {
+                        // Solo un toque seco pulsa L3/R3; si hay arrastre, nunca.
+                        clicking = true
+                        view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                        input.press(clickName)
+                        scope.launch {
+                            delay(90)
+                            input.release(clickName)
+                            clicking = false
+                        }
                     }
                 }
             }

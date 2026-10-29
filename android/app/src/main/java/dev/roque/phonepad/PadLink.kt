@@ -60,6 +60,10 @@ class PadInput {
     val left = Stick()
     val right = Stick()
 
+    /** El dedo está sobre el stick derecho: el giroscopio no debe moverlo. */
+    @Volatile
+    var stickRightHeld = false
+
     fun press(name: String) {
         mask = mask or Buttons.bit(name)
     }
