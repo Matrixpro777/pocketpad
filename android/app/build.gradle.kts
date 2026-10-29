@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -12,12 +14,33 @@ android {
         applicationId = "dev.roque.phonepad"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2"
+        versionCode = 4
+        versionName = "0.4"
+    }
+
+    // Firma de publicación: las claves viven fuera del repositorio
+    // (android/keystore.properties está en .gitignore).
+    val keystoreFile = rootProject.file("keystore.properties")
+    val keystore = Properties().apply {
+        if (keystoreFile.exists()) keystoreFile.inputStream().use { load(it) }
+    }
+
+    signingConfigs {
+        if (keystore.isNotEmpty()) {
+            create("release") {
+                storeFile = file(keystore.getProperty("storeFile"))
+                storePassword = keystore.getProperty("storePassword")
+                keyAlias = keystore.getProperty("keyAlias")
+                keyPassword = keystore.getProperty("keyPassword")
+            }
+        }
     }
 
     buildTypes {
         release {
+            if (keystore.isNotEmpty()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }

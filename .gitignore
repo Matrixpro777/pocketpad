@@ -13,3 +13,8 @@ android/.idea/
 
 # Varios
 *.log
+
+# Firma de publicación (nunca subir)
+android/keystore.properties
+*.jks
+*.keystore

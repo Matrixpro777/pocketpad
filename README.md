@@ -3,6 +3,14 @@
 Mando DualShock 4 virtual en la PC, controlado desde hasta 8 teléfonos por WiFi.
 Funciona en Linux (uinput). Windows quedará para una segunda fase (ViGEmBus).
 
+## Descargar e instalar (para cualquiera)
+
+1. Descargue el APK de la última *release* del repositorio.
+2. Instálelo en el teléfono (permita «instalar desde esta fuente»).
+3. En la PC: `git clone <repo> && cd phonepad && ./run.sh`
+   (o el servicio: `systemctl --user enable --now phonepad`).
+4. Abra la app, pulse **Buscar en la red** o escriba la IP de la PC y **Conectar**.
+
 ## Requisitos
 
 - Python 3.10+ y `python-evdev`
@@ -98,3 +106,15 @@ Levanta el servidor real y valida UDP, WebSocket y la emisión al kernel.
 1. App Android nativa (Kotlin + Compose) con el mismo protocolo UDP.
 2. Backend Windows con `vgamepad` (máximo 4 mandos).
 3. Giroscopio, vibración y perfiles de layout.
+
+## Publicar una versión
+
+```bash
+./android/build.sh assembleRelease        # APK firmado (clave en ~/.android-keys)
+gh release create v0.4 android/app/build/outputs/apk/release/app-release.apk \
+   --title "Phonepad 0.4" --notes "rumble real y reconexión automática"
+```
+
+MIT © Roque. Las claves de firma viven en `~/.android-keys/phonepad.jks` y
+`android/keystore.properties` (ambas fuera de git): sin ellas no se pueden
+publicar actualizaciones que actualicen la app instalada.
