@@ -108,7 +108,14 @@ class PadLink {
     private var udpTarget: InetSocketAddress? = null
     private var tcpSocket: Socket? = null
     private var tcpOut: BufferedWriter? = null
+    private var tcpIn: BufferedReader? = null
     private var sender: Job? = null
+    private var receiver: Job? = null
+    private var heartbeat: Job? = null
+    private var lastPong = 0L
+
+    /** Vibración pedida por el juego: (milisegundos, amplitud 1..255). */
+    var onRumble: ((Int, Int) -> Unit)? = null
 
     suspend fun connect(host: String, port: Int, name: String, useTcp: Boolean = false): String? =
         withContext(Dispatchers.IO) {
@@ -136,6 +143,7 @@ class PadLink {
 
             when (reply.optString("t")) {
                 "welcome" -> {
+                    sock.soTimeout = 700
                     udpSocket = sock
                     udpTarget = address
                     overTcp = false
@@ -179,6 +187,7 @@ class PadLink {
                     socket.soTimeout = 0
                     tcpSocket = socket
                     tcpOut = writer
+                    tcpIn = reader
                     overTcp = true
                     welcomed(host, port, reply)
                 }
@@ -207,7 +216,91 @@ class PadLink {
         this.host = host
         connected = true
         status = if (overTcp) "Conectado por USB ($port)" else "Conectado a $host:$port"
+        lastPong = SystemClock.elapsedRealtime()
+        listen()
         return null
+    }
+
+    /** Escucha respuestas (pong, rumble) y vigila que el servidor siga vivo. */
+    private fun listen() {
+        receiver?.cancel()
+        heartbeat?.cancel()
+        val sock = udpSocket
+        val reader = tcpIn
+
+        receiver = scope.launch {
+            if (sock != null) {
+                val buffer = ByteArray(2048)
+                while (isActive) {
+                    val packet = DatagramPacket(buffer, buffer.size)
+                    try {
+                        sock.receive(packet)
+                    } catch (e: SocketTimeoutException) {
+                        continue
+                    } catch (e: Exception) {
+                        break
+                    }
+                    dispatch(String(packet.data, 0, packet.length))
+                }
+            } else if (reader != null) {
+                while (isActive) {
+                    val line = try {
+                        reader.readLine()
+                    } catch (e: Exception) {
+                        null
+                    } ?: break
+                    dispatch(line)
+                }
+            }
+            if (connected) {
+                status = "Conexión perdida"
+                connected = false
+            }
+        }
+
+        heartbeat = scope.launch {
+            while (isActive) {
+                delay(1500)
+                val silence = SystemClock.elapsedRealtime() - lastPong
+                if (silence > 6000) {
+                    status = "Conexión perdida"
+                    connected = false
+                    break
+                }
+                sendRaw(JSONObject().put("t", "ping").put("ts", SystemClock.elapsedRealtime()).toString())
+            }
+        }
+    }
+
+    private fun dispatch(text: String) {
+        val msg = runCatching { JSONObject(text) }.getOrNull() ?: return
+        when (msg.optString("t")) {
+            "pong" -> lastPong = SystemClock.elapsedRealtime()
+            "rumble" -> onRumble?.invoke(
+                msg.optInt("ms", 120),
+                msg.optInt("amp", 180),
+            )
+        }
+    }
+
+    /** Envía un JSON por el transporte activo; seguro entre corrutinas. */
+    @Synchronized
+    private fun sendRaw(text: String) {
+        try {
+            val sock = udpSocket
+            val address = udpTarget
+            val writer = tcpOut
+            if (sock != null && address != null) {
+                val payload = text.toByteArray()
+                sock.send(DatagramPacket(payload, payload.size, address))
+            } else if (writer != null) {
+                writer.write(text + "\n")
+                writer.flush()
+            }
+        } catch (e: Exception) {
+            status = "Conexión perdida"
+            connected = false
+        }
     }
 
     /** Busca servidores por broadcast; devuelve la IP del primero que conteste. */
@@ -279,19 +372,8 @@ class PadLink {
                             },
                         )
                         .put("b", mask)
-                    try {
-                        if (sock != null && address != null) {
-                            val payload = message.toString().toByteArray()
-                            sock.send(DatagramPacket(payload, payload.size, address))
-                        } else if (writer != null) {
-                            writer.write(message.toString() + "\n")
-                            writer.flush()
-                        }
-                    } catch (e: Exception) {
-                        status = "Conexión perdida"
-                        connected = false
-                        break
-                    }
+                    sendRaw(message.toString())
+                    if (!connected) break
                     lastMask = mask
                     lastAxes = axes
                     lastSent = now
@@ -304,6 +386,10 @@ class PadLink {
     fun disconnect() {
         sender?.cancel()
         sender = null
+        receiver?.cancel()
+        receiver = null
+        heartbeat?.cancel()
+        heartbeat = null
 
         udpSocket?.let { sock ->
             udpTarget?.let { address ->
@@ -321,12 +407,14 @@ class PadLink {
             }
         }
         runCatching { tcpOut?.close() }
+        runCatching { tcpIn?.close() }
         runCatching { tcpSocket?.close() }
 
         udpSocket = null
         udpTarget = null
         tcpSocket = null
         tcpOut = null
+        tcpIn = null
         connected = false
         overTcp = false
         slot = -1

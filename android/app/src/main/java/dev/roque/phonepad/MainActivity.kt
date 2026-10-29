@@ -4,6 +4,8 @@ import android.content.Context
 import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.view.HapticFeedbackConstants
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
@@ -124,9 +126,49 @@ fun PhonepadApp(link: PadLink) {
     var message by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var searching by remember { mutableStateOf(false) }
-    var usbMode by remember { mutableStateOf(false) }
+    var usbMode by remember { mutableStateOf(prefs.getBoolean("usb", false)) }
+    var wantConnected by remember { mutableStateOf(false) }
+    var reconnecting by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val input = remember { PadInput() }
+    val vibrator = remember { context.getSystemService(Vibrator::class.java) }
+
+    LaunchedEffect(Unit) {
+        link.onRumble = { ms, amp ->
+            vibrator?.let { device ->
+                runCatching {
+                    device.vibrate(
+                        VibrationEffect.createOneShot(
+                            ms.toLong().coerceIn(30L, 1500L),
+                            amp.coerceIn(1, 255),
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    // Reconexión automática: si la sesión cae sola, reintenta hasta 40 veces.
+    LaunchedEffect(link.connected) {
+        if (link.connected) {
+            wantConnected = true
+            reconnecting = false
+            return@LaunchedEffect
+        }
+        if (!wantConnected) return@LaunchedEffect
+        reconnecting = true
+        repeat(40) {
+            delay(1200)
+            if (link.connected) return@LaunchedEffect
+            val savedHost = prefs.getString("host", null) ?: return@LaunchedEffect
+            val savedPort = prefs.getString("port", "9001")?.toIntOrNull() ?: 9001
+            val error = link.connect(savedHost, savedPort, deviceName(), prefs.getBoolean("usb", false))
+            if (error == null && link.connected) return@LaunchedEffect
+            message = "Reconectando… (${it + 1}/40)"
+        }
+        reconnecting = false
+        message = "No se pudo reconectar. Pulse Conectar."
+    }
 
     LaunchedEffect(link.connected) {
         if (link.connected) link.startStreaming(input)
@@ -137,8 +179,10 @@ fun PhonepadApp(link: PadLink) {
             link = link,
             input = input,
             onExit = {
+                wantConnected = false
                 input.reset()
                 link.disconnect()
+                link.onRumble = null
             },
         )
     } else {
@@ -183,7 +227,11 @@ fun PhonepadApp(link: PadLink) {
                         val error = link.connect(cleanHost, cleanPort, deviceName(), usbMode)
                         busy = false
                         if (error == null) {
-                            prefs.edit().putString("host", cleanHost).putString("port", port).apply()
+                            prefs.edit()
+                                .putString("host", cleanHost)
+                                .putString("port", port)
+                                .putBoolean("usb", usbMode)
+                                .apply()
                             message = ""
                         } else {
                             message = error

@@ -208,6 +208,20 @@ avisa al giroscopio de que hay dedo en el stick derecho.
 migración desde `layout_v1`). El HUD muestra el perfil y abre el diálogo para
 crear, cambiar o borrar. El HUD también enciende el giroscopio («giro»).
 
-Pendiente: reconexión automática y rumble. El rumble por uinput queda aparcado:
-`upload_effect` se bloquea porque el bucle de lectura de FF de python-evdev no
-responde en evdev 2.0; sin FF declarado el mando sigue funcionando.
+### Rumble real y reconexión (v0.4)
+
+El kernel sí reenvía la fuerza por el descriptor de uinput: `EV_UINPUT`
+(UI_FF_UPLOAD / UI_FF_ERASE) y `EV_FF` con el id del efecto al empezar y al
+parar. `VirtualPad` declara `EV_FF: [FF_RUMBLE]` con `max_effects=16` y un hilo
+`_ff_loop` que contesta esas peticiones; al reproducirse un efecto avisa con
+`on_rumble(amplitud 0..255, ms)`. `Hub._push_rumble` lo manda a la sesión del
+slot como `{"t":"rumble","amp":…,"ms":…}`. La app vibra con
+`VibrationEffect.createOneShot`.
+
+Aviso: probar el FF desde el mismo proceso Python que tiene el pad se cuelga
+(`upload_effect` retiene el GIL mientras espera la respuesta); usar siempre un
+proceso cliente aparte, como hace el juego.
+
+Reconexión: `PadLink` escucha pong/rumble, manda `ping` cada 1,5 s y da la
+sesión por perdida a los 6 s sin respuesta. `PhonepadApp` reintenta 40 veces
+cada 1,2 s con el último host/puerto guardados (el modo USB también se guarda).

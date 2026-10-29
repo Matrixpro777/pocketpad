@@ -25,6 +25,7 @@ class Hub:
     def __init__(self, factory):
         self.factory = factory
         self.sessions = {}  # key -> dict(slot, name, pad, last, send)
+        self.loop = None  # set in amain; el aviso de vibración llega de otro hilo
 
     def _used_slots(self):
         return {s["slot"] for s in self.sessions.values()}
@@ -50,10 +51,15 @@ class Hub:
                 await send({"t": "full", "max": MAX_PADS})
                 return
             name = str(msg.get("name") or f"phone-{slot + 1}")[:32]
+            pad = self.factory(slot)
+            try:
+                pad.on_rumble = self._rumble_sender(slot)
+            except AttributeError:
+                pass
             self.sessions[key] = {
                 "slot": slot,
                 "name": name,
-                "pad": self.factory(slot),
+                "pad": pad,
                 "last": time.monotonic(),
                 "send": send,
             }
@@ -83,6 +89,25 @@ class Hub:
             await send({"t": "pong", "echo": msg.get("ts")})
         elif kind == "bye":
             await self.close(key)
+
+    def _rumble_sender(self, slot):
+        """Devuelve un aviso seguro entre hilos para el pad de ese slot."""
+
+        def notify(amplitude, milliseconds):
+            loop = self.loop
+            if loop is None:
+                return
+            loop.call_soon_threadsafe(self._push_rumble, slot, amplitude, milliseconds)
+
+        return notify
+
+    def _push_rumble(self, slot, amplitude, milliseconds):
+        for session in list(self.sessions.values()):
+            if session["slot"] != slot:
+                continue
+            session["last"] = time.monotonic()
+            message = {"t": "rumble", "amp": amplitude, "ms": milliseconds}
+            asyncio.ensure_future(session["send"](message))
 
     async def close(self, key):
         session = self.sessions.pop(key, None)
@@ -292,6 +317,7 @@ def local_ip():
 async def amain(args):
     hub = Hub(VirtualPad)
     loop = asyncio.get_running_loop()
+    hub.loop = loop
 
     await loop.create_datagram_endpoint(lambda: UdpProtocol(hub), local_addr=("0.0.0.0", args.udp_port))
     ws_server = await asyncio.start_server(
