@@ -1,4 +1,4 @@
-"""Servidor Phonepad: UDP (app nativa) + WebSocket (navegador) + HTTP estático."""
+"""Servidor PocketPad: UDP (app nativa) + WebSocket (navegador) + HTTP estático."""
 
 import argparse
 import asyncio
@@ -332,7 +332,7 @@ async def amain(args):
 
     watchdog = asyncio.create_task(hub.watchdog())
     ip = local_ip()
-    log("Phonepad activo")
+    log("PocketPad activo")
     log(f"  navegador : http://{ip}:{args.http_port}/")
     log(f"  udp/tcp   : {args.udp_port}  (app nativa; tcp para USB + adb reverse)")
     log(f"  ws        : {args.ws_port}   (navegador)")
@@ -350,7 +350,7 @@ async def amain(args):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Phonepad: DS4 virtual por red")
+    parser = argparse.ArgumentParser(description="PocketPad: DS4 virtual por red")
     parser.add_argument("--udp-port", type=int, default=9001)
     parser.add_argument("--ws-port", type=int, default=8099)
     parser.add_argument("--http-port", type=int, default=8080)

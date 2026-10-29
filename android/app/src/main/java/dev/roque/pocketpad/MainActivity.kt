@@ -1,4 +1,4 @@
-package dev.roque.phonepad
+package dev.roque.pocketpad
 
 import android.content.Context
 import android.os.Build
@@ -106,7 +106,7 @@ class MainActivity : ComponentActivity() {
                     onSurface = Ink,
                 ),
             ) {
-                PhonepadApp(link)
+                PocketPadApp(link)
             }
         }
     }
@@ -118,9 +118,9 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun PhonepadApp(link: PadLink) {
+fun PocketPadApp(link: PadLink) {
     val context = LocalContext.current
-    val prefs = remember { context.getSharedPreferences("phonepad", Context.MODE_PRIVATE) }
+    val prefs = remember { context.getSharedPreferences("pocketpad", Context.MODE_PRIVATE) }
     var host by remember { mutableStateOf(prefs.getString("host", "").orEmpty()) }
     var port by remember { mutableStateOf(prefs.getString("port", "9001").orEmpty()) }
     var message by remember { mutableStateOf("") }
@@ -275,7 +275,7 @@ private fun SetupScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                "PHONEPAD",
+                "POCKETPAD",
                 color = Accent,
                 fontSize = 26.sp,
                 fontWeight = FontWeight.Bold,
@@ -377,7 +377,7 @@ private fun CreditsDialog(onClose: () -> Unit) {
         confirmButton = {
             TextButton(onClick = onClose) { Text("cerrar") }
         },
-        title = { Text("Phonepad 0.2", fontWeight = FontWeight.Bold) },
+        title = { Text("PocketPad 0.2", fontWeight = FontWeight.Bold) },
         text = {
             Column {
                 Text("Mandos DualShock 4 virtuales para jugar desde el teléfono.", fontSize = 12.sp)
@@ -412,7 +412,7 @@ private fun Credit(role: String, name: String) {
 @Composable
 private fun ControllerScreen(link: PadLink, input: PadInput, onExit: () -> Unit) {
     val context = LocalContext.current
-    val prefs = remember { context.getSharedPreferences("phonepad", Context.MODE_PRIVATE) }
+    val prefs = remember { context.getSharedPreferences("pocketpad", Context.MODE_PRIVATE) }
     val layout = remember { PadLayout(prefs) }
     var editing by remember { mutableStateOf(false) }
     val gyro = remember { Gyro(context, input) }

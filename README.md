@@ -1,4 +1,4 @@
-# Phonepad
+# PocketPad
 
 Mando DualShock 4 virtual en la PC, controlado desde hasta 8 teléfonos por WiFi.
 Funciona en Linux (uinput). Windows quedará para una segunda fase (ViGEmBus).
@@ -7,8 +7,8 @@ Funciona en Linux (uinput). Windows quedará para una segunda fase (ViGEmBus).
 
 1. Descargue el APK de la última *release* del repositorio.
 2. Instálelo en el teléfono (permita «instalar desde esta fuente»).
-3. En la PC: `git clone <repo> && cd phonepad && ./run.sh`
-   (o el servicio: `systemctl --user enable --now phonepad`).
+3. En la PC: `git clone <repo> && cd pocketpad && ./run.sh`
+   (o el servicio: `systemctl --user enable --now pocketpad`).
 4. Abra la app, pulse **Buscar en la red** o escriba la IP de la PC y **Conectar**.
 
 ## Requisitos
@@ -20,7 +20,7 @@ Funciona en Linux (uinput). Windows quedará para una segunda fase (ViGEmBus).
 ## Arrancar
 
 ```bash
-cd ~/Proyectos/phonepad
+cd ~/Proyectos/pocketpad
 ./run.sh
 ```
 
@@ -38,10 +38,10 @@ El HUD indica qué mando virtual te tocó (`mando 1 de 8`).
 ## App Android
 
 ```bash
-./android/build.sh            # compila y copia el APK a phonepad/web/
+./android/build.sh            # compila y copia el APK a pocketpad/web/
 ```
 
-Descarga e instala desde el celular: `http://IP:8080/phonepad.apk`
+Descarga e instala desde el celular: `http://IP:8080/pocketpad.apk`
 (permite "instalar apps desconocidas" para el navegador). Abre la app, pulsa
 **Buscar en la red** o escribe la IP de la PC y **Conectar**. Recuerda la IP.
 El APK es de depuración (firmado con clave debug), no requiere cuenta Google.
@@ -91,7 +91,7 @@ Cambiar: `./run.sh --http-port 8080 --ws-port 8099 --udp-port 9001`
 JSON. Registro: `{"t":"hello","name":"..."}` → `{"t":"welcome","slot":0,"max":8}`.
 Estado a ~60 Hz: `{"t":"state","a":[lx,ly,rx,ry,l2,r2],"b":máscara}`,
 ejes en -1..1 (gatillos 0..1) y máscara de bits en el orden de
-`phonepad/protocol.py`. Sin tráfico durante 6 s el slot se libera.
+`pocketpad/protocol.py`. Sin tráfico durante 6 s el slot se libera.
 
 ## Pruebas
 
@@ -112,9 +112,9 @@ Levanta el servidor real y valida UDP, WebSocket y la emisión al kernel.
 ```bash
 ./android/build.sh assembleRelease        # APK firmado (clave en ~/.android-keys)
 gh release create v0.4 android/app/build/outputs/apk/release/app-release.apk \
-   --title "Phonepad 0.4" --notes "rumble real y reconexión automática"
+   --title "PocketPad 0.4" --notes "rumble real y reconexión automática"
 ```
 
-MIT © Roque. Las claves de firma viven en `~/.android-keys/phonepad.jks` y
+MIT © Roque. Las claves de firma viven en `~/.android-keys/pocketpad.jks` y
 `android/keystore.properties` (ambas fuera de git): sin ellas no se pueden
 publicar actualizaciones que actualicen la app instalada.

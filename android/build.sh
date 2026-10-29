@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Compila el APK de Phonepad con el toolchain instalado en ~/Android.
+# Compila el APK de PocketPad con el toolchain instalado en ~/Android.
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -15,8 +15,8 @@ printf 'sdk.dir=%s\n' "$ANDROID_HOME" > local.properties
 
 APK="app/build/outputs/apk/debug/app-debug.apk"
 if [ -f "$APK" ]; then
-  cp "$APK" ../phonepad/web/phonepad.apk
+  cp "$APK" ../pocketpad/web/pocketpad.apk
   echo
   echo "APK: $(pwd)/$APK"
-  echo "También servido en http://<ip-pc>:8080/phonepad.apk"
+  echo "También servido en http://<ip-pc>:8080/pocketpad.apk"
 fi

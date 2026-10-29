@@ -7,11 +7,11 @@ plugins {
 }
 
 android {
-    namespace = "dev.roque.phonepad"
+    namespace = "dev.roque.pocketpad"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "dev.roque.phonepad"
+        applicationId = "dev.roque.pocketpad"
         minSdk = 26
         targetSdk = 35
         versionCode = 4

@@ -1,15 +1,15 @@
-# HANDOFF — Phonepad
+# HANDOFF — PocketPad
 
 Estado al 2026-10-26. Sirve para retomar el proyecto con cualquier modelo o sesión.
 
 ## Punto de partida (2026-10-26)
 
-- Repo git local en `~/Proyectos/phonepad`, commit **c0dad201** (sin remoto).
-  Volver aquí: `git -C ~/Proyectos/phonepad checkout c0dad201`.
+- Repo git local en `~/Proyectos/pocketpad`, commit **c0dad201** (sin remoto).
+  Volver aquí: `git -C ~/Proyectos/pocketpad checkout c0dad201`.
 - Funciona: servidor UDP/TCP/WebSocket, DS4 virtual por uinput, cliente web,
   APK Android con editor de layout. Verificado con `tools/selftest.py` (OK) y
   con el teléfono real (slot 1 creado y liberado).
-- Servicio: `systemctl --user status phonepad` (arranca al iniciar sesión).
+- Servicio: `systemctl --user status pocketpad` (arranca al iniciar sesión).
 - Sin probar aún: un juego real, giroscopio, rumble, Windows.
 - Comprobación rápida tras cualquier cambio: `python3 tools/selftest.py`.
 
@@ -25,7 +25,7 @@ gamepad sin root; latencia 20-60 ms vs 4-13 ms).
 ## Lo que ya funciona (probado)
 
 ```bash
-cd ~/Proyectos/phonepad && ./run.sh          # servidor
+cd ~/Proyectos/pocketpad && ./run.sh          # servidor
 python3 tools/selftest.py                    # prueba de humo: OK
 ```
 
@@ -37,11 +37,11 @@ mandos virtuales funcionan`.
 Archivos:
 
 ```
-phonepad/
-├── phonepad/protocol.py      # botones, ejes, timeouts, mensajes
-├── phonepad/pad_linux.py     # DS4 virtual con /dev/uinput
-├── phonepad/server.py        # UDP + WebSocket + HTTP estático
-├── phonepad/web/index.html   # mando táctil (navegador, ya usable)
+pocketpad/
+├── pocketpad/protocol.py      # botones, ejes, timeouts, mensajes
+├── pocketpad/pad_linux.py     # DS4 virtual con /dev/uinput
+├── pocketpad/server.py        # UDP + WebSocket + HTTP estático
+├── pocketpad/web/index.html   # mando táctil (navegador, ya usable)
 ├── tools/selftest.py         # prueba de integración
 ├── tools/install_android_sdk.sh
 ├── run.sh
@@ -50,7 +50,7 @@ phonepad/
 
 Protocolo: JSON. `{"t":"hello","name":...}` → `{"t":"welcome","slot":0,"max":8}`;
 estado a ~60 Hz `{"t":"state","a":[lx,ly,rx,ry,l2,r2],"b":máscara}`. La máscara
-sigue el orden de `phonepad/protocol.py::BUTTONS`. Slot libre tras 6 s sin
+sigue el orden de `pocketpad/protocol.py::BUTTONS`. Slot libre tras 6 s sin
 tráfico. Puertos: 8080 HTTP, 8099 WS, 9001 UDP.
 
 ## Entorno ya instalado (sin root)
@@ -80,12 +80,12 @@ nuevo es `~/Android/Sdk/cmdline-tools/latest/bin/android`.
 
 ## Hecho — app Android nativa
 
-Compila y funciona: `./android/build.sh` → `phonepad/web/phonepad.apk`
-(8,4 MB, `dev.roque.phonepad`, minSdk 26, targetSdk 35). Verificado con
-`aapt2 dump badging`: activity `dev.roque.phonepad.MainActivity`, label
-"Phonepad". Sin probar todavía en un teléfono real.
+Compila y funciona: `./android/build.sh` → `pocketpad/web/pocketpad.apk`
+(8,4 MB, `dev.roque.pocketpad`, minSdk 26, targetSdk 35). Verificado con
+`aapt2 dump badging`: activity `dev.roque.pocketpad.MainActivity`, label
+"PocketPad". Sin probar todavía en un teléfono real.
 
-Código: `android/app/src/main/java/dev/roque/phonepad/`
+Código: `android/app/src/main/java/dev/roque/pocketpad/`
 - `PadLink.kt` — UDP, descubrimiento por broadcast, envío de estado a 60 Hz.
 - `MainActivity.kt` — pantalla de conexión + mando Compose con multitáctil.
 
@@ -110,7 +110,7 @@ El servidor escucha el mismo puerto 9001 en TCP (líneas JSON) además de UDP.
 Con el teléfono por cable y depuración USB activa:
 
 ```bash
-adb install -r phonepad/web/phonepad.apk
+adb install -r pocketpad/web/pocketpad.apk
 adb reverse tcp:8080 tcp:8080     # ver la página en el teléfono
 adb reverse tcp:9001 tcp:9001     # transporte del mando
 ```
@@ -124,7 +124,7 @@ desde el propio teléfono: `curl` al 8080 devuelve 200 y un `hello` por nc al
 Ojo: el teléfono es Xiaomi y `adb install` falla con
 `INSTALL_FAILED_USER_RESTRICTED`. Opciones: activar *Ajustes → Opciones de
 desarrollador → Instalar vía USB*, o instalar a mano el APK ya copiado en
-`/sdcard/Download/phonepad.apk`.
+`/sdcard/Download/pocketpad.apk`.
 
 La IP del portátil es DHCP (hoy `192.168.1.25`); no asumir una fija.
 
@@ -154,7 +154,7 @@ Versiones sugeridas: AGP 8.7.3, Kotlin 2.0.21, Compose BOM 2024.10.00.
 Primera compilación: 3-6 min; descargas ~400 MB.
 
 Instalación en el celular sin cable: copiar el APK a
-`phonepad/phonepad/web/` y descargarlo desde `http://IP:8080/` en el navegador.
+`pocketpad/pocketpad/web/` y descargarlo desde `http://IP:8080/` en el navegador.
 
 ## Pendiente 2 — red del celular (bloqueante para probar)
 
@@ -169,8 +169,8 @@ problema es el router.
 Servidor de prueba en segundo plano:
 
 ```bash
-cd ~/Proyectos/phonepad && setsid nohup ./run.sh >/tmp/phonepad.log 2>&1 &
-# parar: pkill -f phonepad.server
+cd ~/Proyectos/pocketpad && setsid nohup ./run.sh >/tmp/pocketpad.log 2>&1 &
+# parar: pkill -f pocketpad.server
 ```
 
 ## Pendiente 3 — Windows
@@ -184,7 +184,7 @@ app Android tal cual.
 - Bluetooth: descartado.
 - PWA/navegador como producto final: sirve solo para pruebas (ya está).
 - `evdev.UInput` no acepta `uniq=` (falla con TypeError); sí acepta `phys=`.
-- La prueba de humo debe localizar el mando por `dev.phys == "phonepad/<slot>"`,
+- La prueba de humo debe localizar el mando por `dev.phys == "pocketpad/<slot>"`,
   no por nombre, porque el nombre es `PS4Controller<slot+1>`.
 
 ### Marca y créditos (v0.2)
@@ -223,5 +223,5 @@ Aviso: probar el FF desde el mismo proceso Python que tiene el pad se cuelga
 proceso cliente aparte, como hace el juego.
 
 Reconexión: `PadLink` escucha pong/rumble, manda `ping` cada 1,5 s y da la
-sesión por perdida a los 6 s sin respuesta. `PhonepadApp` reintenta 40 veces
+sesión por perdida a los 6 s sin respuesta. `PocketPadApp` reintenta 40 veces
 cada 1,2 s con el último host/puerto guardados (el modo USB también se guarda).

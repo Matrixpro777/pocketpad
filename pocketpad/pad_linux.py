@@ -91,7 +91,7 @@ class VirtualPad:
             product=0x09CC + slot,
             version=0x8111 + slot,
             bustype=e.BUS_USB,
-            phys=f"phonepad/{slot}",
+            phys=f"pocketpad/{slot}",
             max_effects=16,
         )
         threading.Thread(target=self._ff_loop, daemon=True).start()

@@ -1,4 +1,4 @@
-package dev.roque.phonepad
+package dev.roque.pocketpad
 
 import android.os.SystemClock
 import androidx.compose.runtime.getValue
@@ -27,7 +27,7 @@ import java.net.Socket
 import java.net.SocketTimeoutException
 import kotlin.math.roundToInt
 
-/** Orden canónico de bits; debe coincidir con phonepad/protocol.py. */
+/** Orden canónico de bits; debe coincidir con pocketpad/protocol.py. */
 object Buttons {
     val ORDER = listOf(
         "cross", "circle", "square", "triangle",
@@ -88,7 +88,7 @@ class PadInput {
 }
 
 /**
- * Conexión con el servidor Phonepad. Una sesión = un mando virtual.
+ * Conexión con el servidor PocketPad. Una sesión = un mando virtual.
  * WiFi usa UDP; por USB se usa TCP (localhost vía `adb reverse`).
  */
 class PadLink {

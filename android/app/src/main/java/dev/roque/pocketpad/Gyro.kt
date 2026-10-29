@@ -1,4 +1,4 @@
-package dev.roque.phonepad
+package dev.roque.pocketpad
 
 import android.content.Context
 import android.hardware.Sensor

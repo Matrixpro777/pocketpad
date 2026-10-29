@@ -10,16 +10,16 @@
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
-        android:label="Phonepad"
+        android:label="PocketPad"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Phonepad">
+        android:theme="@style/Theme.PocketPad">
 
         <activity
             android:name=".MainActivity"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|density"
             android:exported="true"
             android:screenOrientation="sensorLandscape"
-            android:theme="@style/Theme.Phonepad">
+            android:theme="@style/Theme.PocketPad">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

@@ -29,7 +29,7 @@ def find_pad(slot=0, timeout=3.0):
                 dev = evdev.InputDevice(path)
             except OSError:
                 continue
-            if dev.phys == f"phonepad/{slot}":
+            if dev.phys == f"pocketpad/{slot}":
                 return dev
             dev.close()
         time.sleep(0.05)
@@ -83,7 +83,7 @@ async def collect(dev, seconds):
 
 async def main():
     proc = await asyncio.create_subprocess_exec(
-        sys.executable, "-m", "phonepad.server",
+        sys.executable, "-m", "pocketpad.server",
         "--udp-port", str(UDP_PORT), "--ws-port", str(WS_PORT),
         "--http-port", str(HTTP_PORT),
         cwd=ROOT, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.STDOUT,
