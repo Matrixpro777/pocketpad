@@ -54,6 +54,19 @@ adb reverse tcp:8080 tcp:8080
 
 En la app active **Por USB** y conéctese a `127.0.0.1:9001`.
 
+Para que el mapeo sobreviva a reinicios del servidor adb, hay un vigilante
+incluido (`pocketpad-usb.service`): vuelve a crear `adb reverse` cada 5 s si
+falta. Instalación:
+
+```bash
+install -m755 pocketpad-usb ~/.local/bin/
+install -m644 pocketpad-usb.service ~/.config/systemd/user/
+systemctl --user daemon-reload && systemctl --user enable --now pocketpad-usb
+```
+
+El teléfono y la PC deben estar en **la misma red**: dos SSID distintos (aunque
+se llamen parecido) no se ven entre sí.
+
 ### Si algo no funciona
 
 - **No encuentra la PC**: misma red, firewall abierto, y pruebe la IP a mano.

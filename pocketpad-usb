@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Mantiene `adb reverse` de PocketPad aunque reinicie el servidor adb.
+# Puertos: 9001 (mandos TCP) y 8080 (web/APK).
+set -u
+ADB=${ADB:-$HOME/Android/Sdk/platform-tools/adb}
+[ -x "$ADB" ] || ADB=$(command -v adb) || exit 0
+
+while sleep 5; do
+  "$ADB" start-server >/dev/null 2>&1 || continue
+  serials=$("$ADB" devices | awk 'NR>1 && $2=="device" {print $1}')
+  [ -n "$serials" ] || continue
+  current=$("$ADB" reverse --list 2>/dev/null)
+  for port in 9001 8080; do
+    case "$current" in
+      *"tcp:$port tcp:$port"*) ;;
+      *) "$ADB" reverse "tcp:$port" "tcp:$port" >/dev/null 2>&1 ;;
+    esac
+  done
+done

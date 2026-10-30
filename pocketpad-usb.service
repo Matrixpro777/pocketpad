@@ -1,0 +1,12 @@
+[Unit]
+Description=PocketPad: adb reverse automatico para jugar por USB
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/pocketpad-usb
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
