@@ -25,6 +25,8 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.net.SocketTimeoutException
+import kotlin.math.hypot
+import kotlin.math.pow
 import kotlin.math.roundToInt
 
 /** Orden canónico de bits; debe coincidir con pocketpad/protocol.py. */
@@ -46,12 +48,29 @@ class Stick {
     @Volatile var x = 0f
     @Volatile var y = 0f
 
+    /**
+     * Zona muerta radial (0.08) y curva exponencial: cerca del centro el mando
+     * responde más fino, y fuera de la zona muerta el recorrido llega a 1.0.
+     */
     fun set(nx: Float, ny: Float) {
-        x = nx
-        y = ny
+        val magnitude = hypot(nx, ny)
+        if (magnitude <= DEADZONE) {
+            x = 0f
+            y = 0f
+            return
+        }
+        val norm = ((magnitude - DEADZONE) / (1f - DEADZONE)).coerceIn(0f, 1f)
+        val scale = norm.pow(CURVE) / magnitude
+        x = (nx * scale).coerceIn(-1f, 1f)
+        y = (ny * scale).coerceIn(-1f, 1f)
     }
 
     fun reset() = set(0f, 0f)
+
+    private companion object {
+        const val DEADZONE = 0.08f
+        const val CURVE = 1.45f
+    }
 }
 
 class PadInput {
@@ -113,27 +132,36 @@ class PadLink {
     private var receiver: Job? = null
     private var heartbeat: Job? = null
     private var lastPong = 0L
+    private var lastTouch = 0L
 
     /** Vibración pedida por el juego: (milisegundos, amplitud 1..255). */
     var onRumble: ((Int, Int) -> Unit)? = null
 
-    suspend fun connect(host: String, port: Int, name: String, useTcp: Boolean = false): String? =
+    suspend fun connect(
+        host: String,
+        port: Int,
+        name: String,
+        useTcp: Boolean = false,
+        pin: String = "",
+    ): String? =
         withContext(Dispatchers.IO) {
             disconnect()
-            if (useTcp) connectTcp(host, port, name) else connectUdp(host, port, name)
+            if (useTcp) connectTcp(host, port, name, pin) else connectUdp(host, port, name, pin)
         }
 
-    private fun connectUdp(host: String, port: Int, name: String): String? {
+    private fun helloMsg(name: String, pin: String): String {
+        val json = JSONObject().put("t", "hello").put("name", name)
+        if (pin.isNotEmpty()) json.put("pin", pin)
+        return json.toString()
+    }
+
+    private fun connectUdp(host: String, port: Int, name: String, pin: String): String? {
         val sock = DatagramSocket()
         sock.broadcast = true
         return try {
             sock.soTimeout = 2500
             val address = InetSocketAddress(InetAddress.getByName(host), port)
-            val hello = JSONObject()
-                .put("t", "hello")
-                .put("name", name)
-                .toString()
-                .toByteArray()
+            val hello = helloMsg(name, pin).toByteArray()
             sock.send(DatagramPacket(hello, hello.size, address))
 
             val buffer = ByteArray(2048)
@@ -155,6 +183,11 @@ class PadLink {
                     "La PC ya tiene los 8 mandos ocupados"
                 }
 
+                "error" -> {
+                    sock.close()
+                    pinError(reply)
+                }
+
                 else -> {
                     sock.close()
                     "Respuesta inesperada: ${reply.optString("t")}"
@@ -169,7 +202,7 @@ class PadLink {
         }
     }
 
-    private fun connectTcp(host: String, port: Int, name: String): String? {
+    private fun connectTcp(host: String, port: Int, name: String, pin: String): String? {
         var socket: Socket? = null
         return try {
             socket = Socket()
@@ -177,7 +210,7 @@ class PadLink {
             socket.soTimeout = 2500
             val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream()))
             val reader = BufferedReader(InputStreamReader(socket.getInputStream()))
-            writer.write(JSONObject().put("t", "hello").put("name", name).toString() + "\n")
+            writer.write(helloMsg(name, pin) + "\n")
             writer.flush()
 
             val line = reader.readLine() ?: return "La PC cerró la conexión"
@@ -197,6 +230,11 @@ class PadLink {
                     "La PC ya tiene los 8 mandos ocupados"
                 }
 
+                "error" -> {
+                    socket.close()
+                    pinError(reply)
+                }
+
                 else -> {
                     socket.close()
                     "Respuesta inesperada: ${reply.optString("t")}"
@@ -210,6 +248,9 @@ class PadLink {
             e.message ?: "Error de red"
         }
     }
+
+    private fun pinError(reply: JSONObject): String =
+        if (reply.optString("msg") == "pin") "PIN incorrecto" else "Error del servidor"
 
     private fun welcomed(host: String, port: Int, reply: JSONObject): String? {
         slot = reply.optInt("slot", -1)
@@ -304,16 +345,12 @@ class PadLink {
     }
 
     /** Busca servidores por broadcast; devuelve la IP del primero que conteste. */
-    suspend fun discover(port: Int): String? = withContext(Dispatchers.IO) {
+    suspend fun discover(port: Int, pin: String = ""): String? = withContext(Dispatchers.IO) {
         val sock = DatagramSocket()
         try {
             sock.broadcast = true
             sock.soTimeout = 400
-            val hello = JSONObject()
-                .put("t", "hello")
-                .put("name", "discover")
-                .toString()
-                .toByteArray()
+            val hello = helloMsg("discover", pin).toByteArray()
             val broadcast = InetSocketAddress(InetAddress.getByName("255.255.255.255"), port)
             repeat(3) {
                 sock.send(DatagramPacket(hello, hello.size, broadcast))
@@ -344,6 +381,24 @@ class PadLink {
         } finally {
             runCatching { sock.close() }
         }
+    }
+
+    /** Toque del touchpad: puntos normalizados 0..1 (máx. 2 dedos). */
+    fun sendTouch(points: List<Pair<Float, Float>>) {
+        if (!connected) return
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastTouch < 16) return  // ~60 Hz máximo
+        lastTouch = now
+        val array = JSONArray()
+        points.take(2).forEach { (x, y) ->
+            array.put(
+                JSONArray()
+                    .put((x * 1000f).roundToInt() / 1000.0)
+                    .put((y * 1000f).roundToInt() / 1000.0),
+            )
+        }
+        val text = JSONObject().put("t", "touch").put("p", array).toString()
+        scope.launch { sendRaw(text) }  // el socket no puede usarse en el hilo de UI
     }
 
     fun startStreaming(input: PadInput) {

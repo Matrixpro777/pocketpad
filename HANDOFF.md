@@ -15,6 +15,14 @@ Estado al 2026-10-26. Sirve para retomar el proyecto con cualquier modelo o sesi
   uinput → `{"t":"rumble"}` → vibración), reconexión automática, L3/R3 solo con
   toque seco.
 - Comprobación rápida: `python3 tools/selftest.py` (OK el 2026-10-30).
+- HUD: la barra superior se sustituyó por un icono ⚙ centrado y arrastrable que
+  abre un panel movible al medio (perfil, giro, editar, restablecer, salir,
+  cerrar).
+- v0.5 (2026-10-30): curva + zona muerta de sticks (0.08 / exponente 1.45) y
+  touchpad del DS4 (`ABS_MT` de 2 dedos, probado por `selftest.py`).
+  `--pin` / `POCKETPAD_PIN` en el servidor; campo PIN en la app. Aviso «solo
+  Linux» en la app y backend Windows `pocketpad/pad_windows.py` con vgamepad
+  (4 mandos, sin probar). APK 0.5 instalado en el Xiaomi.
 - Probado en juegos: CTR (SacredFire) 2 jugadores; GOW3 (port) detecta el mando;
   BT3 (Tenkaichi3Decomp) ya trae el mapeo estándar en `bt3_settings.txt`.
 - Pendiente: Windows/macOS, touchpad del DS4, curva/zona muerta de sticks, PIN

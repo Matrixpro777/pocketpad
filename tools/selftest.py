@@ -122,6 +122,25 @@ async def main():
             failures.append(f"gatillo R2 incorrecto: {axes[:6]}")
         print("eventos:", len(events), "| cross ok:", (e.BTN_SOUTH, 1) in keys)
 
+        # ---- touchpad: dos dedos deben llegar como ABS_MT ----
+        task = asyncio.create_task(collect(dev, 0.8))
+        touch = {"t": "touch", "p": [[0.25, 0.75], [0.6, 0.4]]}
+        for _ in range(15):
+            sock.sendto(json.dumps(touch).encode(), UDP_ADDR)
+            await asyncio.sleep(0.02)
+        await asyncio.sleep(0.25)
+        touch_events = await task
+        mt = [
+            (ev.code, ev.value)
+            for ev in touch_events
+            if ev.type == e.EV_ABS and ev.code in (e.ABS_MT_POSITION_X, e.ABS_MT_POSITION_Y)
+        ]
+        if not any(c == e.ABS_MT_POSITION_X and 470 <= v <= 490 for c, v in mt):
+            failures.append(f"touchpad X incorrecto: {mt[:6]}")
+        if not any(ev.type == e.EV_KEY and ev.code == e.BTN_TOUCH and ev.value == 1 for ev in touch_events):
+            failures.append("touchpad sin BTN_TOUCH")
+        print("touchpad:", len(mt), "eventos MT")
+
         # ---- WebSocket ----
         reader, writer = await asyncio.open_connection("127.0.0.1", WS_PORT)
         key = base64.b64encode(os.urandom(16)).decode()

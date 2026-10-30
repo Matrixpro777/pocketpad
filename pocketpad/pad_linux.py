@@ -34,6 +34,9 @@ BUTTON_CODES = {
     "ps": e.BTN_MODE,
 }
 
+# Touchpad del DS4: 1920x943 como el original; 2 dedos por ranura MT.
+TOUCH_W, TOUCH_H = 1919, 942
+
 # Las flechas van como HAT (eje digital) para que SDL/Wine las entiendan.
 DPAD_CODES = {
     "up": (e.ABS_HAT0Y, -1),
@@ -66,12 +69,14 @@ class VirtualPad:
         self._axes = {}
         self._keys = {}
         self._hats = {e.ABS_HAT0X: 0, e.ABS_HAT0Y: 0}
+        self._touch = [None, None]
+        self._touch_id = 1
         self._effects = {}
         self._last_rumble = 0.0
         self._closed = False
 
         events = {
-            e.EV_KEY: sorted(BUTTON_CODES.values()),
+            e.EV_KEY: sorted(BUTTON_CODES.values()) + [e.BTN_TOUCH],
             e.EV_ABS: [
                 (code, AbsInfo(0, lo, hi, 0, 0, 0))
                 for code, lo, hi in AXIS_INFO.values()
@@ -79,6 +84,10 @@ class VirtualPad:
             + [
                 (e.ABS_HAT0X, AbsInfo(0, -1, 1, 0, 0, 0)),
                 (e.ABS_HAT0Y, AbsInfo(0, -1, 1, 0, 0, 0)),
+                (e.ABS_MT_SLOT, AbsInfo(0, 0, 1, 0, 0, 0)),
+                (e.ABS_MT_TRACKING_ID, AbsInfo(0, 0, 65535, 0, 0, 0)),
+                (e.ABS_MT_POSITION_X, AbsInfo(0, 0, TOUCH_W, 0, 0, 0)),
+                (e.ABS_MT_POSITION_Y, AbsInfo(0, 0, TOUCH_H, 0, 0, 0)),
             ],
             e.EV_FF: [e.FF_RUMBLE],
         }
@@ -133,6 +142,37 @@ class VirtualPad:
 
         if changed:
             self.ui.syn()
+
+    # -- touchpad -----------------------------------------------------
+    def touch(self, points):
+        """Dedos del touchpad normalizados 0..1: [[x, y], ...] (máx. 2)."""
+        target = [None, None]
+        for index, point in enumerate(list(points or [])[:2]):
+            try:
+                px = min(max(float(point[0]), 0.0), 1.0)
+                py = min(max(float(point[1]), 0.0), 1.0)
+            except (TypeError, ValueError, IndexError):
+                continue
+            target[index] = (int(round(px * TOUCH_W)), int(round(py * TOUCH_H)))
+
+        if target == self._touch:
+            return
+        for slot in (0, 1):
+            old, new = self._touch[slot], target[slot]
+            if old == new:
+                continue
+            self._emit(e.EV_ABS, e.ABS_MT_SLOT, slot)
+            if new is None:
+                self._emit(e.EV_ABS, e.ABS_MT_TRACKING_ID, -1)
+                continue
+            if old is None:  # dedo nuevo: identificador distinto
+                self._emit(e.EV_ABS, e.ABS_MT_TRACKING_ID, self._touch_id)
+                self._touch_id = self._touch_id % 65533 + 1
+            self._emit(e.EV_ABS, e.ABS_MT_POSITION_X, new[0])
+            self._emit(e.EV_ABS, e.ABS_MT_POSITION_Y, new[1])
+        self._touch = target
+        self._emit(e.EV_KEY, e.BTN_TOUCH, 1 if any(target) else 0)
+        self.ui.syn()
 
     # -- fuerza -------------------------------------------------------
     def _ff_loop(self):
@@ -196,6 +236,7 @@ class VirtualPad:
 
     def reset(self):
         self.update([0.0] * len(AXES), 0)
+        self._touch = [None, None]
 
     def close(self):
         self._closed = True

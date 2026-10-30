@@ -151,10 +151,15 @@ Cambiar: `./run.sh --http-port 8080 --ws-port 8099 --udp-port 9001`
 
 ## Protocolo
 
-JSON. Registro: `{"t":"hello","name":"..."}` → `{"t":"welcome","slot":0,"max":8}`.
+JSON. Registro: `{"t":"hello","name":"...","pin":"1234"}` →
+`{"t":"welcome","slot":0,"max":8}`. Con `--pin` (o `POCKETPAD_PIN=1234`) el
+servidor exige el PIN y responde `{"t":"error","msg":"pin"}` si falta o no
+coincide.
 Estado a ~60 Hz: `{"t":"state","a":[lx,ly,rx,ry,l2,r2],"b":máscara}`,
 ejes en -1..1 (gatillos 0..1) y máscara de bits en el orden de
-`pocketpad/protocol.py`. Sin tráfico durante 6 s el slot se libera.
+`pocketpad/protocol.py`. Touchpad: `{"t":"touch","p":[[x,y],[x,y]]}` con
+coordenadas normalizadas 0..1 (hasta dos dedos). Sin tráfico durante 6 s el
+slot se libera.
 
 ## Pruebas
 
@@ -166,13 +171,13 @@ Levanta el servidor real y valida UDP, WebSocket y la emisión al kernel.
 
 ## Próximamente
 
-- **Windows**: backend con ViGEmBus, mismo protocolo y misma app.
+- **Windows**: backend `pocketpad/pad_windows.py` (ViGEmBus + `vgamepad`) ya
+  escrito con la misma interfaz; sin probar en una máquina Windows.
 - **macOS**: en investigación (no hay equivalente libre a uinput/ViGEm).
 - **iOS**: depende de poder enviar UDP en segundo plano; sin fecha.
-- Touchpad del DS4, curva de sticks y PIN de seguridad para la red local.
 
-Solo Linux está soportado hoy: en Windows y macOS el servidor **no** funciona
-todavía, aunque la app Android ya está lista para ellos.
+Solo Linux está probado: en Windows el servidor debería arrancar con `vgamepad`
+instalado (4 mandos), pero falta validarlo. En macOS el servidor **no** funciona.
 
 ## Publicar una versión
 

@@ -5,25 +5,38 @@ import asyncio
 import base64
 import hashlib
 import json
+import os
 import socket
 import struct
+import sys
 import threading
 import time
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from .pad_linux import VirtualPad
 from .protocol import IDLE_TIMEOUT, MAX_PADS, welcome_msg
 
 WEB_DIR = Path(__file__).parent / "web"
 WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 
 
+def pad_factory():
+    """Backend según la plataforma: uinput en Linux, ViGEmBus en Windows."""
+    if sys.platform.startswith("win"):
+        from .pad_windows import WindowsPad
+
+        return WindowsPad
+    from .pad_linux import VirtualPad
+
+    return VirtualPad
+
+
 # ---------------------------------------------------------------- hub
 class Hub:
-    def __init__(self, factory):
+    def __init__(self, factory, pin=""):
         self.factory = factory
+        self.pin = str(pin or "")
         self.sessions = {}  # key -> dict(slot, name, pad, last, send)
         self.loop = None  # set in amain; el aviso de vibración llega de otro hilo
 
@@ -42,6 +55,9 @@ class Hub:
     async def handle(self, key, msg, send):
         kind = msg.get("t")
         if kind == "hello":
+            if self.pin and str(msg.get("pin") or "") != self.pin:
+                await send({"t": "error", "msg": "pin"})
+                return
             session = self.sessions.get(key)
             if session:
                 await send(welcome_msg(session["slot"], session["name"]))
@@ -84,6 +100,14 @@ class Hub:
             except (TypeError, ValueError):
                 mask = 0
             session["pad"].update(axes, mask)
+            session["last"] = time.monotonic()
+        elif kind == "touch":
+            points = msg.get("p")
+            if isinstance(points, list):
+                try:
+                    session["pad"].touch(points)
+                except AttributeError:
+                    pass
             session["last"] = time.monotonic()
         elif kind == "ping":
             await send({"t": "pong", "echo": msg.get("ts")})
@@ -315,7 +339,7 @@ def local_ip():
 
 # ---------------------------------------------------------------- main
 async def amain(args):
-    hub = Hub(VirtualPad)
+    hub = Hub(pad_factory(), args.pin)
     loop = asyncio.get_running_loop()
     hub.loop = loop
 
@@ -337,6 +361,7 @@ async def amain(args):
     log(f"  udp/tcp   : {args.udp_port}  (app nativa; tcp para USB + adb reverse)")
     log(f"  ws        : {args.ws_port}   (navegador)")
     log(f"  mandos    : hasta {MAX_PADS} simultáneos")
+    log(f"  PIN       : {'activado' if args.pin else 'sin PIN'}")
 
     try:
         await asyncio.Event().wait()
@@ -355,6 +380,11 @@ def main():
     parser.add_argument("--ws-port", type=int, default=8099)
     parser.add_argument("--http-port", type=int, default=8080)
     parser.add_argument("--no-http", action="store_true", help="no servir la página web")
+    parser.add_argument(
+        "--pin",
+        default=os.environ.get("POCKETPAD_PIN", ""),
+        help="PIN obligatorio para conectar (vacío = red abierta)",
+    )
     args = parser.parse_args()
     try:
         asyncio.run(amain(args))

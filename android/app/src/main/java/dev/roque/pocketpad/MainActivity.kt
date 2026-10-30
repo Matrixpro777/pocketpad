@@ -15,6 +15,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
@@ -60,6 +62,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -123,6 +126,7 @@ fun PocketPadApp(link: PadLink) {
     val prefs = remember { context.getSharedPreferences("pocketpad", Context.MODE_PRIVATE) }
     var host by remember { mutableStateOf(prefs.getString("host", "").orEmpty()) }
     var port by remember { mutableStateOf(prefs.getString("port", "9001").orEmpty()) }
+    var pin by remember { mutableStateOf(prefs.getString("pin", "").orEmpty()) }
     var message by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var searching by remember { mutableStateOf(false) }
@@ -162,7 +166,13 @@ fun PocketPadApp(link: PadLink) {
             if (link.connected) return@LaunchedEffect
             val savedHost = prefs.getString("host", null) ?: return@LaunchedEffect
             val savedPort = prefs.getString("port", "9001")?.toIntOrNull() ?: 9001
-            val error = link.connect(savedHost, savedPort, deviceName(), prefs.getBoolean("usb", false))
+            val error = link.connect(
+                savedHost,
+                savedPort,
+                deviceName(),
+                prefs.getBoolean("usb", false),
+                prefs.getString("pin", "").orEmpty(),
+            )
             if (error == null && link.connected) return@LaunchedEffect
             message = "Reconectando… (${it + 1}/40)"
         }
@@ -189,12 +199,14 @@ fun PocketPadApp(link: PadLink) {
         SetupScreen(
             host = host,
             port = port,
+            pin = pin,
             message = message.ifEmpty { link.status },
             busy = busy,
             searching = searching,
             usbMode = usbMode,
             onHost = { host = it },
             onPort = { port = it },
+            onPin = { pin = it },
             onUsb = {
                 usbMode = it
                 if (it) {
@@ -206,7 +218,7 @@ fun PocketPadApp(link: PadLink) {
                 scope.launch {
                     searching = true
                     message = "Buscando en la red local…"
-                    val found = link.discover(port.toIntOrNull() ?: 9001)
+                    val found = link.discover(port.toIntOrNull() ?: 9001, pin)
                     searching = false
                     if (found != null) {
                         host = found
@@ -224,13 +236,14 @@ fun PocketPadApp(link: PadLink) {
                 } else {
                     scope.launch {
                         busy = true
-                        val error = link.connect(cleanHost, cleanPort, deviceName(), usbMode)
+                        val error = link.connect(cleanHost, cleanPort, deviceName(), usbMode, pin.trim())
                         busy = false
                         if (error == null) {
                             prefs.edit()
                                 .putString("host", cleanHost)
                                 .putString("port", port)
                                 .putBoolean("usb", usbMode)
+                                .putString("pin", pin.trim())
                                 .apply()
                             message = ""
                         } else {
@@ -250,12 +263,14 @@ private fun deviceName(): String =
 private fun SetupScreen(
     host: String,
     port: String,
+    pin: String,
     message: String,
     busy: Boolean,
     searching: Boolean,
     usbMode: Boolean,
     onHost: (String) -> Unit,
     onPort: (String) -> Unit,
+    onPin: (String) -> Unit,
     onUsb: (Boolean) -> Unit,
     onDiscover: () -> Unit,
     onConnect: () -> Unit,
@@ -270,87 +285,107 @@ private fun SetupScreen(
     ) {
         Column(
             Modifier
-                .widthIn(max = 520.dp)
-                .padding(24.dp),
+                .widthIn(max = 460.dp)
+                .padding(horizontal = 18.dp, vertical = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
                 "POCKETPAD",
                 color = Accent,
-                fontSize = 26.sp,
+                fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
-                letterSpacing = 5.sp,
+                letterSpacing = 4.sp,
             )
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(3.dp))
             Text(
                 "mando DualShock virtual por WiFi o USB",
                 color = Ink.copy(alpha = 0.6f),
-                fontSize = 12.sp,
+                fontSize = 11.sp,
             )
-            Spacer(Modifier.height(3.dp))
-            Text("por Roque", color = Accent.copy(alpha = 0.55f), fontSize = 10.sp, letterSpacing = 1.sp)
-            Spacer(Modifier.height(22.dp))
+            Spacer(Modifier.height(2.dp))
+            Text("por Roque", color = Accent.copy(alpha = 0.55f), fontSize = 9.sp, letterSpacing = 1.sp)
+            Spacer(Modifier.height(12.dp))
 
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 OutlinedTextField(
                     value = host,
                     onValueChange = onHost,
-                    label = { Text("IP de la PC") },
+                    label = { Text("IP de la PC", fontSize = 11.sp) },
+                    textStyle = MaterialTheme.typography.bodyMedium,
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).height(50.dp),
                 )
-                Spacer(Modifier.width(10.dp))
+                Spacer(Modifier.width(8.dp))
                 OutlinedTextField(
                     value = port,
                     onValueChange = onPort,
-                    label = { Text("Puerto") },
+                    label = { Text("Puerto", fontSize = 11.sp) },
+                    textStyle = MaterialTheme.typography.bodyMedium,
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.width(104.dp),
+                    modifier = Modifier.width(92.dp).height(50.dp),
                 )
             }
 
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(6.dp))
+            OutlinedTextField(
+                value = pin,
+                onValueChange = onPin,
+                label = { Text("PIN de la sesión (opcional)", fontSize = 11.sp) },
+                textStyle = MaterialTheme.typography.bodyMedium,
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+            )
+
+            Spacer(Modifier.height(6.dp))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Switch(checked = usbMode, onCheckedChange = onUsb)
-                Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.width(10.dp))
                 Column {
-                    Text("Por USB (adb reverse)", color = Ink, fontSize = 13.sp)
+                    Text("Por USB (adb reverse)", color = Ink, fontSize = 12.sp)
                     Text(
                         "sin WiFi; la PC debe ejecutar adb reverse",
                         color = Ink.copy(alpha = 0.5f),
-                        fontSize = 10.sp,
+                        fontSize = 9.sp,
                     )
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Button(
                     onClick = onDiscover,
                     enabled = !busy && !searching && !usbMode,
-                    modifier = Modifier.weight(1f),
-                ) { Text(if (searching) "Buscando…" else "Buscar en la red") }
+                    modifier = Modifier.weight(1f).height(44.dp),
+                ) { Text(if (searching) "Buscando…" else "Buscar en la red", fontSize = 13.sp) }
 
                 Button(
                     onClick = onConnect,
                     enabled = !busy && !searching,
-                    modifier = Modifier.weight(1f),
-                ) { Text(if (busy) "Conectando…" else "Conectar") }
+                    modifier = Modifier.weight(1f).height(44.dp),
+                ) { Text(if (busy) "Conectando…" else "Conectar", fontSize = 13.sp) }
             }
 
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(8.dp))
             Text(
                 message,
                 color = Ink.copy(alpha = 0.65f),
-                fontSize = 12.sp,
+                fontSize = 11.sp,
                 textAlign = TextAlign.Center,
             )
 
-            Spacer(Modifier.height(26.dp))
+            Spacer(Modifier.height(12.dp))
             Text(
-                "v0.2 · hecho por Roque",
+                "Linux por ahora · Windows y macOS en camino",
+                color = Ink.copy(alpha = 0.4f),
+                fontSize = 10.sp,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "v0.5 · hecho por Roque",
                 color = Ink.copy(alpha = 0.35f),
                 fontSize = 10.sp,
             )
@@ -417,6 +452,9 @@ private fun ControllerScreen(link: PadLink, input: PadInput, onExit: () -> Unit)
     var editing by remember { mutableStateOf(false) }
     val gyro = remember { Gyro(context, input) }
     var showProfiles by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
+    var menuShift by remember { mutableStateOf(Offset.Zero) }
+    var gearShift by remember { mutableStateOf(Offset.Zero) }
     DisposableEffect(Unit) { onDispose { gyro.stop() } }
 
     BoxWithConstraints(
@@ -459,6 +497,17 @@ private fun ControllerScreen(link: PadLink, input: PadInput, onExit: () -> Unit)
             FaceButtons(input, Modifier.fillMaxSize(), enabled = !editing)
         }
 
+        PadSlot(
+            layout.item("touchpad", 0.34f, 0.24f),
+            w * 0.30f,
+            (h * 0.16f).coerceIn(56.dp, 130.dp),
+            w,
+            h,
+            editing,
+        ) {
+            TouchPadArea(link, Modifier.fillMaxSize(), enabled = !editing)
+        }
+
         PadSlot(layout.item("share", 0.40f, 0.02f), 62.dp, 36.dp, w, h, editing) {
             PadButton("SHARE", input, "share", Modifier.fillMaxSize(), RoundedCornerShape(50), 9.sp, enabled = !editing)
         }
@@ -469,25 +518,71 @@ private fun ControllerScreen(link: PadLink, input: PadInput, onExit: () -> Unit)
             PadButton("START", input, "options", Modifier.fillMaxSize(), RoundedCornerShape(50), 9.sp, enabled = !editing)
         }
 
+        val density = LocalDensity.current
+        val menuMaxX = with(density) { (w / 2 - 130.dp).toPx() }.coerceAtLeast(0f)
+        val menuMaxY = with(density) { (h / 2 - 100.dp).toPx() }.coerceAtLeast(0f)
+
         if (editing) {
             EditBar(
                 modifier = Modifier.align(Alignment.TopCenter),
                 profile = layout.profile,
-                onReset = { layout.reset() },
                 onDone = {
                     layout.save()
                     editing = false
                 },
             )
-        } else {
-            Hud(
-                modifier = Modifier.align(Alignment.TopCenter),
-                link = link,
+        } else if (showMenu) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) { detectTapGestures { showMenu = false } },
+            )
+            SettingsPanel(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .offset { IntOffset(menuShift.x.roundToInt(), menuShift.y.roundToInt()) },
                 profile = layout.profile,
+                slot = link.slot,
+                host = link.host.orEmpty(),
+                connected = link.connected,
                 gyro = gyro,
-                onProfiles = { layout.save(); showProfiles = true },
-                onEdit = { editing = true },
+                onDrag = { drag ->
+                    menuShift = Offset(
+                        (menuShift.x + drag.x).coerceIn(-menuMaxX, menuMaxX),
+                        (menuShift.y + drag.y).coerceIn(-menuMaxY, menuMaxY),
+                    )
+                },
+                onProfiles = {
+                    layout.save()
+                    showMenu = false
+                    showProfiles = true
+                },
+                onEdit = {
+                    showMenu = false
+                    editing = true
+                },
+                onReset = { layout.reset() },
                 onExit = onExit,
+                onClose = { showMenu = false },
+            )
+        } else {
+            SettingsButton(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .offset { IntOffset(gearShift.x.roundToInt(), gearShift.y.roundToInt()) },
+                connected = link.connected,
+                onDrag = { drag ->
+                    val maxX = with(density) { (w / 2 - 26.dp).toPx() }.coerceAtLeast(0f)
+                    val maxY = with(density) { (h / 2 - 26.dp).toPx() }.coerceAtLeast(0f)
+                    gearShift = Offset(
+                        (gearShift.x + drag.x).coerceIn(-maxX, maxX),
+                        (gearShift.y + drag.y).coerceIn(-maxY, maxY),
+                    )
+                },
+                onClick = {
+                    menuShift = Offset.Zero
+                    showMenu = true
+                },
             )
         }
 
@@ -541,78 +636,164 @@ private fun PadSlot(
     )
 }
 
+/** Touchpad del DS4: hasta dos dedos, envía posiciones normalizadas. */
 @Composable
-private fun Hud(
-    modifier: Modifier,
-    link: PadLink,
-    profile: String,
-    gyro: Gyro,
-    onProfiles: () -> Unit,
-    onEdit: () -> Unit,
-    onExit: () -> Unit,
-) {
-    Row(
+private fun TouchPadArea(link: PadLink, modifier: Modifier, enabled: Boolean) {
+    Box(
         modifier
-            .padding(top = 8.dp)
-            .clip(RoundedCornerShape(50))
-            .background(Color.Black.copy(alpha = 0.45f))
-            .border(1.dp, Line, RoundedCornerShape(50))
-            .padding(horizontal = 14.dp, vertical = 7.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .clip(RoundedCornerShape(14.dp))
+            .background(Color.White.copy(alpha = 0.05f))
+            .border(1.dp, Line, RoundedCornerShape(14.dp))
+            .pointerInput(enabled) {
+                if (!enabled) return@pointerInput
+                awaitPointerEventScope {
+                    var active = 0
+                    while (true) {
+                        val pressed = awaitPointerEvent().changes.filter { it.pressed }.take(2)
+                        if (pressed.isNotEmpty()) {
+                            link.sendTouch(
+                                pressed.map { change ->
+                                    (change.position.x / size.width).coerceIn(0f, 1f) to
+                                        (change.position.y / size.height).coerceIn(0f, 1f)
+                                },
+                            )
+                            active = pressed.size
+                        } else if (active > 0) {
+                            link.sendTouch(emptyList())
+                            active = 0
+                        }
+                    }
+                }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text("touchpad", color = Ink.copy(alpha = 0.16f), fontSize = 10.sp)
+    }
+}
+
+/** Botón de ajustes: abre el panel central de opciones. */
+@Composable
+private fun SettingsButton(
+    modifier: Modifier,
+    connected: Boolean,
+    onDrag: (Offset) -> Unit,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier
+            .size(46.dp)
+            .pointerInput(Unit) { detectDragGestures { _, drag -> onDrag(drag) } },
+        contentAlignment = Alignment.Center,
     ) {
         Box(
             Modifier
-                .size(8.dp)
+                .fillMaxSize()
                 .clip(CircleShape)
-                .background(if (link.connected) Accent else Danger),
-        )
-        Spacer(Modifier.width(8.dp))
-        Text("mando ${link.slot + 1} · ${link.host.orEmpty()}", color = Ink, fontSize = 11.sp)
-        Spacer(Modifier.width(12.dp))
-        Text(
-            profile,
-            color = Accent.copy(alpha = 0.85f),
-            fontSize = 11.sp,
-            modifier = Modifier
-                .clickable { onProfiles() }
-                .padding(horizontal = 6.dp, vertical = 2.dp),
-        )
-        if (gyro.available) {
-            Text(
-                "giro",
-                color = if (gyro.enabled) Accent else Ink.copy(alpha = 0.7f),
-                fontSize = 11.sp,
-                fontWeight = if (gyro.enabled) FontWeight.Bold else FontWeight.Normal,
-                modifier = Modifier
-                    .clickable { gyro.toggle() }
-                    .padding(horizontal = 6.dp, vertical = 2.dp),
-            )
+                .background(Color.Black.copy(alpha = 0.55f))
+                .border(1.dp, Line, CircleShape)
+                .clickable { onClick() },
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("⚙", color = Ink.copy(alpha = 0.85f), fontSize = 22.sp)
         }
-        Spacer(Modifier.width(8.dp))
-        Text(
-            "editar",
-            color = Ink.copy(alpha = 0.7f),
-            fontSize = 11.sp,
-            modifier = Modifier
-                .clickable { onEdit() }
-                .padding(horizontal = 6.dp, vertical = 2.dp),
-        )
-        Text(
-            "salir",
-            color = Ink.copy(alpha = 0.7f),
-            fontSize = 11.sp,
-            modifier = Modifier
-                .clickable { onExit() }
-                .padding(horizontal = 6.dp, vertical = 2.dp),
+        Box(
+            Modifier
+                .align(Alignment.TopEnd)
+                .size(9.dp)
+                .clip(CircleShape)
+                .background(if (connected) Accent else Danger),
         )
     }
+}
+
+/** Panel de ajustes: centrado y arrastrable por la franja superior. */
+@Composable
+private fun SettingsPanel(
+    modifier: Modifier,
+    profile: String,
+    slot: Int,
+    host: String,
+    connected: Boolean,
+    gyro: Gyro,
+    onDrag: (Offset) -> Unit,
+    onProfiles: () -> Unit,
+    onEdit: () -> Unit,
+    onReset: () -> Unit,
+    onExit: () -> Unit,
+    onClose: () -> Unit,
+) {
+    Column(
+        modifier
+            .pointerInput(Unit) { detectTapGestures { } }
+            .widthIn(max = 300.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(Color(0xFF141821).copy(alpha = 0.97f))
+            .border(1.dp, Accent.copy(alpha = 0.3f), RoundedCornerShape(20.dp))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .pointerInput(Unit) { detectDragGestures { _, drag -> onDrag(drag) } }
+                .padding(bottom = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+        ) {
+            Text("⠿", color = Ink.copy(alpha = 0.4f), fontSize = 14.sp)
+            Spacer(Modifier.width(8.dp))
+            Box(
+                Modifier
+                    .size(7.dp)
+                    .clip(CircleShape)
+                    .background(if (connected) Accent else Danger),
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                if (host.isEmpty()) "mando ${slot + 1}" else "mando ${slot + 1} · $host",
+                color = Ink.copy(alpha = 0.7f),
+                fontSize = 10.sp,
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            MenuChip(profile, Accent.copy(alpha = 0.9f)) { onProfiles() }
+            if (gyro.available) {
+                MenuChip(
+                    "giro",
+                    if (gyro.enabled) Accent else Ink.copy(alpha = 0.7f),
+                    bold = gyro.enabled,
+                ) { gyro.toggle() }
+            }
+            MenuChip("editar", Ink.copy(alpha = 0.8f)) { onEdit() }
+        }
+        Spacer(Modifier.height(6.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            MenuChip("restablecer", Ink.copy(alpha = 0.8f)) { onReset() }
+            MenuChip("salir", Danger.copy(alpha = 0.9f)) { onExit() }
+            MenuChip("cerrar", Ink.copy(alpha = 0.5f)) { onClose() }
+        }
+    }
+}
+
+@Composable
+private fun MenuChip(label: String, color: Color, bold: Boolean = false, onClick: () -> Unit) {
+    Text(
+        label,
+        color = color,
+        fontSize = 12.sp,
+        fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal,
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(Color.White.copy(alpha = 0.06f))
+            .clickable { onClick() }
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+    )
 }
 
 @Composable
 private fun EditBar(
     modifier: Modifier,
     profile: String,
-    onReset: () -> Unit,
     onDone: () -> Unit,
 ) {
     Row(
@@ -628,14 +809,6 @@ private fun EditBar(
         Spacer(Modifier.width(10.dp))
         Text("arrastra · pellizca", color = Ink.copy(alpha = 0.75f), fontSize = 11.sp)
         Spacer(Modifier.width(12.dp))
-        Text(
-            "restablecer",
-            color = Ink.copy(alpha = 0.75f),
-            fontSize = 11.sp,
-            modifier = Modifier
-                .clickable { onReset() }
-                .padding(horizontal = 6.dp, vertical = 2.dp),
-        )
         Text(
             "listo",
             color = Accent,
