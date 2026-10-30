@@ -2,17 +2,23 @@
 
 Estado al 2026-10-26. Sirve para retomar el proyecto con cualquier modelo o sesión.
 
-## Punto de partida (2026-10-26)
+## Punto de partida (2026-10-30)
 
-- Repo git local en `~/Proyectos/pocketpad`, commit **c0dad201** (sin remoto).
-  Volver aquí: `git -C ~/Proyectos/pocketpad checkout c0dad201`.
-- Funciona: servidor UDP/TCP/WebSocket, DS4 virtual por uinput, cliente web,
-  APK Android con editor de layout. Verificado con `tools/selftest.py` (OK) y
-  con el teléfono real (slot 1 creado y liberado).
-- Servicio: `systemctl --user status pocketpad` (arranca al iniciar sesión).
-- Sin probar aún: un juego real, giroscopio, rumble, Windows.
-- Comprobación rápida tras cualquier cambio: `python3 tools/selftest.py`.
-
+- Público: <https://github.com/Matrixpro777/pocketpad> (MIT), release **v0.4**
+  con `app-release.apk` firmado (clave en `~/.android-keys/pocketpad.jks` y
+  `android/keystore.properties`, fuera de git).
+- Código en `~/Proyectos/pocketpad`; paquete Android `dev.roque.pocketpad`.
+- Servicios de usuario: `pocketpad.service` (servidor) y `pocketpad-usb.service`
+  (rehace `adb reverse` 9001/8080 cada 5 s si el adb se reinicia).
+- Hecho: DS4 por uinput con nombre/PID/versión por slot, UDP+TCP+WebSocket,
+  editor de layout con perfiles por juego, giroscopio, rumble real (EV_FF de
+  uinput → `{"t":"rumble"}` → vibración), reconexión automática, L3/R3 solo con
+  toque seco.
+- Comprobación rápida: `python3 tools/selftest.py` (OK el 2026-10-30).
+- Probado en juegos: CTR (SacredFire) 2 jugadores; GOW3 (port) detecta el mando;
+  BT3 (Tenkaichi3Decomp) ya trae el mapeo estándar en `bt3_settings.txt`.
+- Pendiente: Windows/macOS, touchpad del DS4, curva/zona muerta de sticks, PIN
+  de red, aviso in-app de plataformas futuras.
 
 ## Objetivo
 
